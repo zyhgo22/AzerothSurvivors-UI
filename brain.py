@@ -578,6 +578,36 @@ def build_panel():
     }
 
 
+def spec_hit(name):
+    """这张卡对应的技能，是不是当前流派点名要的。
+
+    返回 "must"（核心）/ "opt"（可选）/ ""（跟流派无关）。
+
+    为什么需要这个：新法术卡经常全被「封顶 30%」拉平，三张牌看着一模一样，
+    光看数字根本分不出该拿哪张。这时候流派才是判据 —— 痛苦流要腐蚀术，
+    火焰流要灵魂之火，拿错了数字再高也用不上。
+    """
+    if not name:
+        return ""
+    try:
+        import azs_builds as B
+        spec = B.get_spec(getattr(ST, "cls", "") or "", SETTINGS.get("spec") or "")
+    except Exception:
+        return ""
+    if not spec:
+        return ""
+    key = (name or "").strip()
+    if not key:
+        return ""
+    for k in spec.get("skills") or []:
+        zh = (k.get("zh") or k.get("name") or "").strip()
+        if not zh:
+            continue
+        if zh == key or (len(zh) >= 2 and (zh in key or key in zh)):
+            return "must" if k.get("must") else "opt"
+    return ""
+
+
 def build_state():
     cfg = SETTINGS
     now = time.time()
@@ -609,10 +639,19 @@ def build_state():
             })
         known = [r["pct"] for r in results if r["pct"] is not None]
         best = max(known) if known else None
+        # 流派点名要的技能优先：只要牌里有流派核心，★ 就只从它们里面出，
+        # 数字再大的杂牌也抢不走这个标记
+        for r in results:
+            r["spec"] = spec_hit(r.get("name"))
+        must = [r for r in results if r["spec"] == "must"]
+        if must:
+            cand = [r["pct"] for r in must if r["pct"] is not None]
+            best = max(cand) if cand else None
         n = len(results)
         step = cfg.get("card_step", 0.1958)
         for i, r in enumerate(results):
-            r["best"] = (best is not None and r["pct"] == best and r["pct"] > 0)
+            r["best"] = (best is not None and r["pct"] == best and r["pct"] > 0 and
+                         (not must or r["spec"] == "must"))
             r["slot"] = i
             # 卡牌始终以屏幕中心对称排布，相邻中心间距固定
             r["x"] = 0.5 + (i - (n - 1) / 2.0) * step
@@ -629,7 +668,10 @@ def build_state():
                 r["main"] = "0%"
             else:
                 r["main"] = ("+%.1f%%" % r["pct"]) if r["confident"] else ("≈+%.1f%%" % r["pct"])
-            if r["best"]:
+            if r["spec"] == "must" and r["pct"] is not None and not r["util"]:
+                # 流派核心：标在数字前面，一眼能看出「这张是冲我来的」
+                r["main"] = "★ 流派 " + r["main"]
+            elif r["best"]:
                 r["main"] = "★ " + r["main"]
             slots.append(r)
 

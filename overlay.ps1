@@ -111,6 +111,7 @@ function Set-FontScale([double]$scale) {
     Rebuild-PanelFonts
     $script:panelSig = ""   # 逼下一帧按新字号重排
     $script:dpsSig = ""
+    $script:bossSig = ""
     Log ("font scale -> " + $scale)
   } catch {
     Log ("font rebuild failed: " + $_.Exception.Message)
@@ -185,6 +186,12 @@ $script:penLine = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArg
 $script:sfRight = New-Object System.Drawing.StringFormat
 $script:sfRight.Alignment = [System.Drawing.StringAlignment]::Far
 $script:sfRight.LineAlignment = [System.Drawing.StringAlignment]::Near
+# 技能名太长时用省略号收尾，不能任它画到伤害数字底下
+$script:sfName = New-Object System.Drawing.StringFormat
+$script:sfName.Alignment = [System.Drawing.StringAlignment]::Near
+$script:sfName.LineAlignment = [System.Drawing.StringAlignment]::Near
+$script:sfName.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+$script:sfName.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
 
 function Rebuild-PanelFonts {
   $s = $script:fontScale
@@ -280,21 +287,33 @@ $script:panel.Add_Paint({
     $g.DrawString([string]$script:panelTotals[1], $script:fPolNum, $script:brGold, [float]($half + 36), [float]($y - 1))
 })
 
-# ---------------- 伤害统计面板 ----------------
-# 照着游戏原生那个「造成伤害」框做的：每个技能一行，伤害 + 占比。
-# 区别是这里能同时给出「整体」和「只打大怪」两套数，游戏原生只有一个。
+# ---------------- 伤害统计面板（两个，并排） ----------------
+# 游戏自带的那个框一次只显示一种：点一下「造成伤害」，想看得切到「首领伤害」，
+# 打起来根本腾不出手。所以照它的样子并排画两个，一直挂在左上角：
+# 左边整体，右边只算跟大怪交手的那段。样式尽力贴游戏原生那栏。
 $script:dpsBuild = $null
+$script:bossBuild = $null
 $script:dpsSig = ""
+$script:bossSig = ""
 $script:dpsOn = $true
 
-$script:dps = New-Object System.Windows.Forms.Panel
-$script:dps.BackColor = [System.Drawing.Color]::FromArgb(14, 18, 26)
-$script:dps.Visible = $false
-$form.Controls.Add($script:dps)
-try {
-  $pi = $script:dps.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"Instance,NonPublic")
-  $pi.SetValue($script:dps, $true, $null)
-} catch {}
+# 名次配色（1 红 / 2 蓝 / 3 金 / 4 绿 / 5 紫），第六名往后统一压暗
+$script:rankBr = @()
+foreach ($c in @(
+    [System.Drawing.Color]::FromArgb(228, 92, 74),
+    [System.Drawing.Color]::FromArgb(86, 152, 226),
+    [System.Drawing.Color]::FromArgb(222, 188, 88),
+    [System.Drawing.Color]::FromArgb(102, 194, 110),
+    [System.Drawing.Color]::FromArgb(166, 114, 230))) {
+  $script:rankBr += (New-Object System.Drawing.SolidBrush $c)
+}
+$script:brBoxBg = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(244, 16, 13, 8))
+$script:brBoxHead = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 40, 29, 16))
+$script:penBoxEdge = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 76, 58, 33)), 1
+$script:penGrip = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(90, 150, 124, 78)), 1
+$script:brBoxTitle = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 226, 194, 118))
+$script:brBoxDim = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 148, 136, 116))
+$script:brBoxX = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(170, 150, 122, 82))
 
 function Fmt-Dmg($v) {
   $n = 0.0
@@ -304,101 +323,327 @@ function Fmt-Dmg($v) {
   return ([string][int]$n)
 }
 
-function Measure-DpsH($rows) {
+function Measure-StatH([int]$n) {
   $s = $script:fontScale
-  $rowH = [int](17 * $s)
-  $h = 9 + [int]($rowH + [math]::Round(7 * $s)) + [int](7 * $s)
-  $h += $rowH * ([array]$rows).Count
-  $h += [int](9 * $s) + [int](24 * $s)
+  if ($n -lt 1) { $n = 1 }
+  $h = [int](23 * $s) + [int](6 * $s) + [int](17 * $s) * $n + [int](8 * $s)
   return [int]$h
 }
 
-$script:dps.Add_Paint({
-    param($sender, $e)
-    $d = $script:dpsBuild
-    if ($null -eq $d) { return }
-    $g = $e.Graphics
-    try {
-      $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-      $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
-    } catch {}
-    $s = $script:fontScale
-    $W = $sender.ClientSize.Width
-    $pad = [int](11 * $s)
-    $rowH = [int](17 * $s)
-    $y = [int](9 * $s)
-    $colDmg = [int]($W * 0.70)
-    $colShare = $W - $pad
+# 一块统计框：标题栏（▼ 名字 … DPS ×）+ 若干行「名次 名字 伤害 占比」
+function Draw-StatBox($g, [int]$W, [int]$H, $title, $dpsText, $rows, $emptyText) {
+  $s = $script:fontScale
+  $pad = [int](11 * $s)
+  $titleH = [int](23 * $s)
+  $rowH = [int](17 * $s)
 
-    $g.DrawString("伤害统计", $script:fPolTitle, $script:brGold, [float]$pad, [float]($y - 2))
-    $head = New-Object System.Drawing.RectangleF 0, ([float]($y - 2)), ([float]($W - $pad)), ([float]$rowH)
-    $g.DrawString([string]$d.total, $script:fPolNum, $script:brText, $head, $script:sfRight)
-    $y += [int]($rowH + [math]::Round(7 * $s))
-    $g.DrawLine($script:penLine, [float]$pad, [float]$y, [float]($W - $pad), [float]$y)
-    $y += [int](7 * $s)
+  $g.FillRectangle($script:brBoxBg, 0, 0, $W, $H)
+  $g.FillRectangle($script:brBoxHead, 1, 1, ($W - 2), $titleH)
+  $g.DrawLine($script:penBoxEdge, 1, ($titleH + 1), ($W - 2), ($titleH + 1))
+  $g.DrawRectangle($script:penBoxEdge, 0, 0, ($W - 1), ($H - 1))
 
-    $i = 0
-    foreach ($r in @($d.rows)) {
-      $i++
-      # 第一名金色，二三名亮白，往后灰一点，跟游戏原生那一栏的感觉接近
-      $col = if ($i -eq 1) { $script:brGold }
-             elseif ($i -le 3) { $script:brText }
-             else { $script:brDim }
-      $g.DrawString([string]$i, $script:fPolSmall, $script:brMiss, [float]$pad, [float]($y - 1))
-      $g.DrawString([string]$r.name, $script:fPolRow, $col, [float]($pad + 18), [float]($y - 1))
-      $r1 = New-Object System.Drawing.RectangleF 0, ([float]($y - 1)), ([float]$colDmg), ([float]$rowH)
-      $g.DrawString([string]$r.dmg, $script:fPolRow, $col, $r1, $script:sfRight)
-      $r2 = New-Object System.Drawing.RectangleF 0, ([float]($y + 2)), ([float]$colShare), ([float]$rowH)
-      $g.DrawString([string]$r.share, $script:fPolSmall, $script:brDim, $r2, $script:sfRight)
-      $y += $rowH
-    }
+  $ty = [int](($titleH - 15 * $s) / 2)
+  $g.DrawString([string][char]0x25BC, $script:fPolSmall, $script:brBoxDim, [float]($pad - 3), [float]($ty + 1))
+  $g.DrawString([string]$title, $script:fPolTitle, $script:brBoxTitle, [float]($pad + 12), [float]($ty - 2))
+  $head = New-Object System.Drawing.RectangleF 0, ([float]($ty + 2)), ([float]($W - $pad - 20 * $s)), ([float]$titleH)
+  $g.DrawString([string]$dpsText, $script:fPolSmall, $script:brBoxDim, $head, $script:sfRight)
+  $g.DrawString([string][char]0x00D7, $script:fPolRow, $script:brBoxX, [float]($W - 15 * $s), [float]($ty - 1))
 
-    $y += [int](9 * $s)
-    $g.DrawLine($script:penLine, [float]$pad, [float]$y, [float]($W - $pad), [float]$y)
-    $y += [int](6 * $s)
-    $g.DrawString("精英", $script:fPolHead, $script:brDim, [float]$pad, [float]($y + 3))
-    $g.DrawString([string]$d.boss, $script:fPolNum, $script:brGold, [float]($pad + 36), [float]($y - 1))
-})
-
-function Update-DpsPanel($state) {
-  $rows = @()
-  $total = "0"
-  $boss = "0"
-  if ($null -ne $state) {
-    foreach ($r in @($state.meter)) {
-      if ($null -eq $r) { continue }
-      $rows += [pscustomobject]@{
-        name = [string]$r.name
-        dmg = (Fmt-Dmg $r.dmg)
-        share = ("{0:N0}%" -f ([double]$r.share * 100))
-      }
-      if ($rows.Count -ge 8) { break }
-    }
-    $total = [string]$state.total_dps
-    $boss = [string]$state.boss_dps
-  }
-  $on = $script:ctrlVisible -and $script:dpsOn -and $rows.Count -gt 0
-  if (-not $on) {
-    if ($script:dps.Visible) { $script:dps.Visible = $false }
+  $y = $titleH + [int](5 * $s)
+  if (@($rows).Count -eq 0) {
+    $g.DrawString([string]$emptyText, $script:fPolRow, $script:brBoxDim, [float]$pad, [float]$y)
     return
   }
-  $sig = (($rows | ForEach-Object { "$($_.name)$($_.dmg)$($_.share)" }) -join "|") + "#" + $total + "#" + $boss
-  if ($sig -ne $script:dpsSig) {
-    $script:dpsSig = $sig
-    $script:dpsBuild = [pscustomobject]@{ rows = $rows; total = $total; boss = $boss }
-    $W = $form.ClientSize.Width
-    $H = $form.ClientSize.Height
-    $pw = [int](300 * $script:fontScale)
-    if ($pw -gt ($W * 0.24)) { $pw = [int]($W * 0.24) }
-    $ph = Measure-DpsH $rows
-    # 放左边：右边留给流派面板，两个不打架
-    $x = [int](16 * $script:fontScale)
-    $y = [int](($H - $ph) / 2)
-    if ($y -lt 16) { $y = 16 }
-    $script:dps.Bounds = New-Object System.Drawing.Rectangle $x, $y, $pw, $ph
+
+  $colPct = $W - $pad
+  $colDmg = $W - $pad - [int](50 * $s)
+  $nameX = $pad + [int](11 * $s)
+  $nameW = $colDmg - $nameX - [int](6 * $s)
+  $i = 0
+  foreach ($r in @($rows)) {
+    $i++
+    $br = if ($i -le $script:rankBr.Count) { $script:rankBr[$i - 1] } else { $script:brBoxDim }
+    $g.DrawString([string]$i, $script:fPolSmall, $br, [float]($pad - 1), [float]($y + 2))
+    $nr = New-Object System.Drawing.RectangleF ([float]$nameX), ([float]$y), ([float]$nameW), ([float]$rowH)
+    $g.DrawString([string]$r.name, $script:fPolRow, $br, $nr, $script:sfName)
+    $rect = New-Object System.Drawing.RectangleF 0, ([float]$y), ([float]$colDmg), ([float]$rowH)
+    $g.DrawString([string]$r.dmg, $script:fPolRow, $script:brText, $rect, $script:sfRight)
+    $rect2 = New-Object System.Drawing.RectangleF 0, ([float]($y + 1)), ([float]$colPct), ([float]$rowH)
+    $g.DrawString([string]$r.share, $script:fPolSmall, $script:brBoxDim, $rect2, $script:sfRight)
+    $y += $rowH
+  }
+}
+
+# 两个统计框的位置和大小存在自己这个文件里，不写进 config.json ——
+# 那边是工具箱管的，它一保存整份覆盖，放进去会被冲掉。
+$script:boxFile = Join-Path $PSScriptRoot "box_layout.json"
+$script:boxLayout = @{}
+
+function Load-BoxLayout {
+  $script:boxLayout = @{}
+  try {
+    if (Test-Path $script:boxFile) {
+      $j = [System.IO.File]::ReadAllText($script:boxFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+      foreach ($k in @("dps", "boss")) {
+        $v = $j.$k
+        if ($null -ne $v) {
+          $script:boxLayout[$k] = @{
+            x = [int]$v.x; y = [int]$v.y; w = [int]$v.w; h = [int]$v.h; auto = [bool]$v.auto
+          }
+        }
+      }
+    }
+  } catch { $script:boxLayout = @{} }
+}
+
+function Save-BoxLayout {
+  try {
+    $o = [ordered]@{}
+    foreach ($k in @("dps", "boss")) {
+      $v = $script:boxLayout[$k]
+      if ($null -ne $v) {
+        $o[$k] = [ordered]@{ x = $v.x; y = $v.y; w = $v.w; h = $v.h; auto = $v.auto }
+      }
+    }
+    $json = ConvertTo-Json $o -Depth 3
+    [System.IO.File]::WriteAllText($script:boxFile, $json, (New-Object System.Text.UTF8Encoding $false))
+  } catch {}
+}
+
+# 换了显示器 / 分辨率之后，存下来的位置可能跑到屏幕外面，这时候回落到默认位置
+function Test-OnScreen([int]$x, [int]$y) {
+  foreach ($s in [System.Windows.Forms.Screen]::AllScreens) {
+    $b = $s.Bounds
+    if (($x -ge ($b.X - 40)) -and ($x -le ($b.X + $b.Width - 60)) -and
+        ($y -ge ($b.Y - 10)) -and ($y -le ($b.Y + $b.Height - 40))) {
+      return $true
+    }
+  }
+  return $false
+}
+
+Load-BoxLayout
+
+function New-StatWindow([string]$key, [string]$title) {
+  $w = New-Object System.Windows.Forms.Form
+  $w.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+  $w.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+  $w.ShowInTaskbar = $false
+  $w.TopMost = $true
+  $w.BackColor = [System.Drawing.Color]::FromArgb(16, 13, 8)
+  $w.Text = "AZS-Stat-" + $key
+  $w.Tag = $key
+  $w.MinimumSize = New-Object System.Drawing.Size ([int](150 * $script:fontScale)), ([int](56 * $script:fontScale))
+  try {
+    $pi = $w.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"Instance,NonPublic")
+    $pi.SetValue($w, $true, $null)
+  } catch {}
+  return $w
+}
+
+# 拖动 / 缩放：
+#   按住空白处拖 = 挪位置；按住右下角那块（会变成斜箭头）拖 = 改大小；
+#   双击 = 把高度恢复成「跟着内容走」。
+# 这两个框是独立小窗口，不是覆盖全屏的那层，所以能直接接收鼠标，
+# 但加了 WS_EX_NOACTIVATE，点它不会把游戏窗口的焦点抢走（不然按 1/2/3 选卡就废了）。
+$script:boxDrag = $null
+
+function Attach-StatWindow($w) {
+  $w.Add_HandleCreated({
+      param($s, $e)
+      try {
+        $ex = [AZS.Win32]::GetWindowLong($s.Handle, $GWL_EXSTYLE)
+        $ex = $ex -bor $WS_EX_NOACTIVATE -bor $WS_EX_TOOLWINDOW -bor 0x00000008
+        [void][AZS.Win32]::SetWindowLong($s.Handle, $GWL_EXSTYLE, $ex)
+      } catch {}
+  })
+
+  $w.Add_MouseDown({
+      param($s, $e)
+      if ($e.Button -ne [System.Windows.Forms.MouseButtons]::Left) { return }
+      $mode = "move"
+      if ((($s.ClientSize.Width - $e.X) -le 18) -and (($s.ClientSize.Height - $e.Y) -le 18)) {
+        $mode = "size"
+      }
+      $script:boxDrag = @{
+        win = $s; mode = $mode
+        pt = [System.Windows.Forms.Cursor]::Position
+        w0 = $s.Width; h0 = $s.Height
+      }
+      $s.Capture = $true
+  })
+
+  $w.Add_MouseMove({
+      param($s, $e)
+      $d = $script:boxDrag
+      if ($null -eq $d) {
+        if ((($s.ClientSize.Width - $e.X) -le 18) -and (($s.ClientSize.Height - $e.Y) -le 18)) {
+          $s.Cursor = [System.Windows.Forms.Cursors]::SizeNWSE
+        } else {
+          $s.Cursor = [System.Windows.Forms.Cursors]::SizeAll
+        }
+        return
+      }
+      if ($d.win -ne $s) { return }
+      $p = [System.Windows.Forms.Cursor]::Position
+      if ($d.mode -eq "move") {
+        $s.Left = $s.Left + ($p.X - $d.pt.X)
+        $s.Top = $s.Top + ($p.Y - $d.pt.Y)
+        $d.pt = $p
+      } else {
+        $nw = [int][math]::Max(150 * $script:fontScale, $d.w0 + ($p.X - $d.pt.X))
+        $nh = [int][math]::Max(56 * $script:fontScale, $d.h0 + ($p.Y - $d.pt.Y))
+        $s.Size = New-Object System.Drawing.Size $nw, $nh
+      }
+  })
+
+  $w.Add_MouseUp({
+      param($s, $e)
+      $d = $script:boxDrag
+      $script:boxDrag = $null
+      $s.Capture = $false
+      if ($null -eq $d) { return }
+      $k = [string]$s.Tag
+      # 拉过右下角就锁定高度，之后行数变了也不自动缩，免得跟手打架
+      $auto = [bool](($script:boxLayout[$k] | ForEach-Object { $_.auto }))
+      if ($d.mode -eq "size") { $auto = $false }
+      $script:boxLayout[$k] = @{ x = $s.Left; y = $s.Top; w = $s.Width; h = $s.Height; auto = $auto }
+      Save-BoxLayout
+      $s.Invalidate()
+  })
+
+  $w.Add_DoubleClick({
+      param($s, $e)
+      $k = [string]$s.Tag
+      $v = $script:boxLayout[$k]
+      if ($null -ne $v) { $v.auto = $true; Save-BoxLayout }
+      $script:dpsSig = ""
+      $script:bossSig = ""
+  })
+
+  $w.Add_Paint({
+      param($s, $e)
+      $k = [string]$s.Tag
+      $d = if ($k -eq "dps") { $script:dpsBuild } else { $script:bossBuild }
+      $g = $e.Graphics
+      try {
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
+      } catch {}
+      if ($null -eq $d) {
+        $g.Clear([System.Drawing.Color]::FromArgb(16, 13, 8))
+        return
+      }
+      Draw-StatBox $g $s.ClientSize.Width $s.ClientSize.Height $d.title $d.dps $d.rows $d.empty
+      # 右下角三道斜杠，暗示这里可以拉
+      $gx = $s.ClientSize.Width - 5
+      $gy = $s.ClientSize.Height - 5
+      for ($i = 0; $i -lt 3; $i++) {
+        $g.DrawLine($script:penGrip, [float]($gx - 5 - $i * 4), [float]($gy - 1), [float]($gx - 1), [float]($gy - 5 - $i * 4))
+      }
+  })
+}
+
+$script:dps = New-StatWindow "dps" "造成伤害"
+$script:bossPanel = New-StatWindow "boss" "首领伤害"
+Attach-StatWindow $script:dps
+Attach-StatWindow $script:bossPanel
+
+function Convert-StatRows($src, [int]$maxN) {
+  $out = @()
+  foreach ($r in @($src)) {
+    if ($null -eq $r) { continue }
+    $out += [pscustomobject]@{
+      name = [string]$r.name
+      dmg = (Fmt-Dmg $r.dmg)
+      share = ("{0:N1}%" -f ([double]$r.share * 100))
+    }
+    if ($out.Count -ge $maxN) { break }
+  }
+  return ,$out
+}
+
+# 第一次显示时按默认位置摆好；之后位置完全听用户的（存在 box_layout.json 里），
+# 只有「自动高度」状态下才随内容改高度。
+function Place-StatWindow($w, [int]$defX, [int]$defY, [int]$defW, [int]$defH, [bool]$autoH) {
+  $k = [string]$w.Tag
+  $v = $script:boxLayout[$k]
+  if ($null -eq $v) {
+    $v = @{ x = $defX; y = $defY; w = $defW; h = $defH; auto = $autoH }
+    $script:boxLayout[$k] = $v
+    if ($defW -lt 150) { $defW = 150 }
+    $w.Bounds = New-Object System.Drawing.Rectangle $defX, $defY, $defW, $defH
+    return
+  }
+  if ($v.auto -and $v.h -ne $defH) {
+    $v.h = $defH
+    $w.Height = $defH
+  }
+  if (-not (Test-OnScreen $v.x $v.y)) {
+    $v.x = $defX
+    $v.y = $defY
+    Save-BoxLayout
+  }
+  if (-not $w.Visible) {
+    $w.Bounds = New-Object System.Drawing.Rectangle $v.x, $v.y, $v.w, $v.h
+  }
+}
+
+function Update-DpsPanel($state) {
+  $rowsAll = @()
+  $rowsBoss = @()
+  $total = "0"
+  $bossDps = "0"
+  if ($null -ne $state) {
+    $rowsAll = Convert-StatRows $state.meter 9
+    $rowsBoss = Convert-StatRows $state.boss_meter 9
+    $total = [string]$state.total_dps
+    $bossDps = [string]$state.boss_dps
+  }
+  $on = $script:ctrlVisible -and $script:dpsOn
+  if (-not $on) {
+    if ($script:dps.Visible) { $script:dps.Hide() }
+    if ($script:bossPanel.Visible) { $script:bossPanel.Hide() }
+    return
+  }
+
+  # 默认位置：贴着游戏窗口左上角。用户拖过就以 box_layout.json 为准。
+  $pw = [int](280 * $script:fontScale)
+  if ($pw -gt ($form.ClientSize.Width * 0.235)) { $pw = [int]($form.ClientSize.Width * 0.235) }
+  if ($pw -lt 180) { $pw = 180 }
+  $gap = [int](10 * $script:fontScale)
+  $x0 = $rect.X + [int](16 * $script:fontScale)
+  $y0 = $rect.Y + [int](16 * $script:fontScale)
+
+  $sigA = (($rowsAll | ForEach-Object { "$($_.name)$($_.dmg)$($_.share)" }) -join "|") + "#" + $total
+  if ($sigA -ne $script:dpsSig) {
+    $script:dpsSig = $sigA
+    $script:dpsBuild = [pscustomobject]@{
+      title = "造成伤害"; dps = ("{0} DPS" -f $total)
+      rows = $rowsAll; empty = "还没有造成伤害。"
+    }
+    Place-StatWindow $script:dps $x0 $y0 $pw (Measure-StatH $rowsAll.Count) $true
     $script:dps.Invalidate()
   }
-  if (-not $script:dps.Visible) { $script:dps.Visible = $true }
+  if (-not $script:dps.Visible) {
+    Place-StatWindow $script:dps $x0 $y0 $pw (Measure-StatH $rowsAll.Count) $true
+    $script:dps.Show()
+  }
+
+  $sigB = (($rowsBoss | ForEach-Object { "$($_.name)$($_.dmg)$($_.share)" }) -join "|") + "#" + $bossDps
+  if ($sigB -ne $script:bossSig) {
+    $script:bossSig = $sigB
+    $script:bossBuild = [pscustomobject]@{
+      title = "首领伤害"; dps = ("{0} DPS" -f $bossDps)
+      rows = $rowsBoss; empty = "尚未与首领交战。"
+    }
+    Place-StatWindow $script:bossPanel ($x0 + $pw + $gap) $y0 $pw (Measure-StatH $rowsBoss.Count) $true
+    $script:bossPanel.Invalidate()
+  }
+  if (-not $script:bossPanel.Visible) {
+    Place-StatWindow $script:bossPanel ($x0 + $pw + $gap) $y0 $pw (Measure-StatH $rowsBoss.Count) $true
+    $script:bossPanel.Show()
+  }
 }
 
 function Update-BuildPanel($state) {
@@ -564,16 +809,26 @@ $timer.Add_Tick({
       $main = [string]$s.main
       $note = [string]$s.note
       $best = [bool]$s.best
+      $spec = [string]$s.spec
       # 只有内容真的变了才动控件。WinForms 每次 set Bounds/Text 都会触发重排 +
       # 重绘，而这个 form 是覆盖全屏的分层窗口，一次重绘就是整整一屏。
-      $key = "{0}|{1}|{2}|{3}|{4}|{5}" -f $cx, $cy, $main, $note, $best, ([string]$s.pct)
+      $key = "{0}|{1}|{2}|{3}|{4}|{5}|{6}" -f $cx, $cy, $main, $note, $best, ([string]$s.pct), $spec
       if ($script:badgeKey[$i] -ne $key) {
         $script:badgeKey[$i] = $key
         $b.Main.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), $cy, $bw, $bh
         $b.Sub.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), ($cy + $bh), $bw, $sh
         $b.Main.Text = $main
         $b.Sub.Text = $note
-        $b.Main.ForeColor = Get-Color $s.pct $best
+        # 流派核心给一块暗金底 + 金字，跟其它卡一眼分开
+        if ($spec -eq "must") {
+          $b.Main.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
+          $b.Sub.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
+          $b.Main.ForeColor = [System.Drawing.Color]::FromArgb(255, 214, 102)
+        } else {
+          $b.Main.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
+          $b.Sub.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
+          $b.Main.ForeColor = Get-Color $s.pct $best
+        }
       }
       if (-not $b.Main.Visible) { $b.Main.Visible = $true; $b.Sub.Visible = $true }
     } else {

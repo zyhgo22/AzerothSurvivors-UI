@@ -1,8 +1,8 @@
 {
- "version": "1.0.6",
- "released": "2026-11-01 15:25",
+ "version": "1.0.8",
+ "released": "2026-11-01 16:18",
  "notes": [
-  "新增伤害统计框（每技能伤害+占比）；流派提示改为仅在选卡时出现；修复悬浮层开关卡顿"
+  "伤害统计框可鼠标拖动、右下角拉大小、双击恢复自动高度，位置自动记住"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -30,8 +30,8 @@
    "size": 10475
   },
   "azs_model.py": {
-   "sha256": "2709bdd785e7ccd05d4ebf6f2496799fcf17fed18701967c60c5e4c09e2d521b",
-   "size": 46425
+   "sha256": "42cb111855a194dd0c98c96067aad4ec9d84d61687b639c8bb7f7837252d0ff7",
+   "size": 46788
   },
   "azs_page_builds.py": {
    "sha256": "c24c1d773fb412d3e353e9f46faa585d061f36aea3c6015629c40586a2812652",
@@ -50,7 +50,7 @@
    "size": 30411
   },
   "azs_paths.py": {
-   "sha256": "9c51ab3084b05167e6dd688620550440cab6fefad5ec7c017ad6d800f4811bdd",
+   "sha256": "e6957f2f0af80afdb6c6bb971af8ff6650affceacaa4e37de9ed1a8868f7e4ca",
    "size": 4793
   },
   "azs_proc.py": {
@@ -74,8 +74,8 @@
    "size": 12319
   },
   "brain.py": {
-   "sha256": "72087879a6f06a934e8b819837430e61b75c073c298e6f95cc1b8df38fb5af17",
-   "size": 32832
+   "sha256": "2213141e36ed236b5127e3c11b8d9d0db29ce4a9b6ad598e47cdc3e46ee48f3c",
+   "size": 34630
   },
   "builds.json": {
    "sha256": "bbe4b7225563e04989ce0803204bd3927622c9947a03f8ce75f4764aad94d8c4",
@@ -94,8 +94,8 @@
    "size": 599
   },
   "overlay.ps1": {
-   "sha256": "74770bbbf278ef0a904f2819ed8f326fcec2227ddc74879bc5b27f7ff3eae213",
-   "size": 28373
+   "sha256": "11f6043cd6ac738b58f8176e896b9392c1367387aea40202400a4c3d828fff1d",
+   "size": 38764
   },
   "rec_offsets.json": {
    "sha256": "6232f9e84981447cd25b1c3772d976818e6c1f9bfd1654a22a8be344f6455632",
@@ -1846,8 +1846,8 @@
    "size": 24526
   },
   "使用说明.txt": {
-   "sha256": "87d11dd30e262a0f9e9a09a8b8589057bd2047a82330c2cd0f13c7755e96918a",
-   "size": 13820
+   "sha256": "9c99d3dbcec8147bad61d3e7281fdd3f8dd98f47f0463506678fb7821aaf909a",
+   "size": 15407
   },
   "技能面板.cmd": {
    "sha256": "b8df3f71d7580e875bab7e3857ed64fe7c1326e6b5bb3ab8ad339207ac7b1933",
@@ -1890,8 +1890,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "9644ef06098f6898a5b09157ba9c42288e1fa0edb603e240ec0c47bf8a436e4f",
-   "size": 11626
+   "sha256": "2437eccf42f41368fc349f751e249fb65507e6d162d61151c13e74444fa05f5f",
+   "size": 15390
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",

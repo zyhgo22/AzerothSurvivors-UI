@@ -1107,7 +1107,11 @@ def evaluate_choice(choice, ctx, abil_lookup):
         share = ctx.share(subj)
         if share is None:
             if is_damage_skill(subj):
-                share = 0.08      # 该技能还没打出伤害：按次要技能兜底
+                # 该技能这一把还没打出伤害：给个保守的「次要技能」占比。
+                # 以前这里是 8%，结果「献祭 +50% 伤害」被算成 +4.0%，
+                # 反过来盖过主力技能的「腐蚀术 +5%」（占 44% → +2.2%）。
+                # 没打过伤害的技能就是没在贡献，宁可低估也不能抢了主技能的位置。
+                share = 0.03
                 fb = True
             else:
                 share = 0.0       # 治疗/免疫类技能：加它也不会涨 DPS
@@ -1141,7 +1145,7 @@ def evaluate_choice(choice, ctx, abil_lookup):
 
     if share is not None:
         pct = (ratio - 1.0) * 100.0 * share
-        head = "估8%×" if fb else "占%.0f%%×" % (share * 100)
+        head = ("估%.0f%%×" % (share * 100)) if fb else ("占%.0f%%×" % (share * 100))
         lost, lost_name = _lost_gear_share(ctx, name)
         if lost > 0:
             # 换装卡只能戴一件：新卡上阵的代价是旧卡那条伤害整条消失
