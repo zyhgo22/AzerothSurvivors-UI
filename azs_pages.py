@@ -150,6 +150,14 @@ def build_overlay(tk, parent):
             dpg.bind_item_theme(b, T.accent_button_theme())
             dpg.add_spacer(width=14)
             dpg.add_text("", tag="ov_visible_state", color=T.C_TEXT_DIM)
+            dpg.add_spacer(width=22)
+            dpg.add_checkbox(label="选卡时显示流派提示", tag="ov_panel",
+                             default_value=True,
+                             callback=cb_overlay_panel, user_data=tk)
+            dpg.add_spacer(width=16)
+            dpg.add_checkbox(label="显示伤害统计框", tag="ov_dps",
+                             default_value=True,
+                             callback=cb_overlay_dps, user_data=tk)
         dpg.add_spacer(height=16)
 
         with dpg.group(horizontal=True):
@@ -442,6 +450,24 @@ def cb_overlay_toggle(sender, app_data, tk):
 
 def cb_overlay_flash(sender, app_data, tk):
     tk.toggle_overlay_visible()
+
+
+def cb_overlay_dps(sender, app_data, tk):
+    """游戏内左侧那块伤害统计（每个技能一行，伤害 + 占比）。"""
+    tk.cfg.overlay["dps"] = bool(app_data)
+    tk.cfg.write_control()
+    tk.cfg.sync_settings()
+
+
+def cb_overlay_panel(sender, app_data, tk):
+    """游戏内那块「流派面板」的开关：技能清单 / 首饰清单 / 双列 DPS。
+
+    走 control.json 而不是 settings.json —— 悬浮层每 200ms 读 control，
+    改完立刻见效，不用重启后台。
+    """
+    tk.cfg.overlay["panel"] = bool(app_data)
+    tk.cfg.write_control()
+    tk.cfg.sync_settings()
 
 
 def cb_overlay_live(sender, app_data, tk):

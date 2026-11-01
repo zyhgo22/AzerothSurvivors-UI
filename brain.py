@@ -77,6 +77,31 @@ def load_settings():
 
 SETTINGS = load_settings()
 
+# settings.json 是工具箱写的，本进程只在启动时读一次的话，用户在界面上改
+# 「流派 / 字号 / 位置」就得手动点「重启后台」才生效——这是最容易踩的坑。
+# 所以按修改时间热重载：注意只能就地改 SETTINGS，不能重新赋值，
+# 因为 build_state / evaluate 里全是直接引用这个 dict。
+_settings_mtime = 0.0
+
+
+def reload_settings():
+    global _settings_mtime
+    try:
+        m = os.path.getmtime(SETTINGS_FILE)
+    except OSError:
+        return
+    if m <= _settings_mtime:
+        return
+    _settings_mtime = m
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as fh:
+            new = json.load(fh)
+        SETTINGS.clear()
+        SETTINGS.update(DEFAULT_SETTINGS)
+        SETTINGS.update(new)
+    except Exception:
+        pass
+
 # ---------------------------------------------------------------- abilities
 try:
     with open(ABILITY_FILE, "r", encoding="utf-8") as fh:
@@ -502,6 +527,57 @@ def note_unknown(choice, note):
         pass
 
 
+def build_panel():
+    """游戏内「流派面板」要显示的内容：这条流派要什么、我身上有什么。
+
+    工具箱那一页和悬浮层共用同一份数据，只是画法不同。
+    没选流派 / 没认出职业时返回空，悬浮层就整块不画。
+    """
+    spec_id = (SETTINGS.get("spec") or "").strip()
+    cls = (getattr(ST, "cls", "") or "").strip().lower()
+    if not spec_id or not cls:
+        return {}
+    try:
+        import azs_builds as B
+        spec = B.get_spec(cls, spec_id)
+        if not spec:
+            return {}
+        skills = B.skill_rows(spec, ST.spells)
+        gears = B.gear_rows(spec, ST.gear)
+        done, total = B.completion(skills, gears)
+        cls_name = B.class_name(cls)
+    except Exception:
+        return {}
+
+    def _cut(s, n):
+        s = (s or "").replace("\n", " ").strip()
+        return s if len(s) <= n else s[:n] + "…"
+
+    return {
+        "id": spec_id,
+        "class": cls_name,
+        "name": spec.get("name") or spec_id,
+        # 悬浮层只有一行空间的标题：职业 + 流派
+        "title": "%s · %s" % (cls_name, spec.get("name") or spec_id),
+        "done": done,
+        "total": total,
+        "skills": [{
+            "zh": r["zh"],
+            "state": r["state"],
+            "note": _cut(r.get("note"), 8),
+            "must": bool(r.get("must")),
+        } for r in skills],
+        "gear": [{
+            # 「命定时刻护符: 灵魂之火」这种是「装备: 词缀」的写法，
+            # 浮窗一行放不下，只留装备名，词缀已经在 bonus 里说明了
+            "name": _cut((r["name"] or "").split(":")[0].strip(), 9),
+            "state": r["state"],
+            "bonus": _cut(r.get("bonus"), 18),
+            "must": bool(r.get("must")),
+        } for r in gears],
+    }
+
+
 def build_state():
     cfg = SETTINGS
     now = time.time()
@@ -573,6 +649,10 @@ def build_state():
         "meter": _meter_out(ST.meter),
         "boss_meter": _meter_out(ST.boss_meter),
         "boss_dps": round(sum(r["dps"] for r in ST.boss_meter), 1),
+        # 游戏内流派面板：技能清单、首饰清单、完成度。
+        # 只有选了流派且认得出职业才有内容，悬浮层据此决定画不画。
+        "build": build_panel(),
+        "panel_on": bool(cfg.get("panel", True)),
         "updated": now,
         "game_alive": ST.game_seen,
     }
@@ -803,6 +883,7 @@ def main():
             now = time.time()
             if now - last_flush >= 0.25:
                 last_flush = now
+                reload_settings()
                 if not ST.game_seen and game_running():
                     ST.game_seen = True
                 if ST.game_seen and empty_polls > 40 and not game_running():

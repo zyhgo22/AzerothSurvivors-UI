@@ -404,6 +404,8 @@ class Toolkit:
     def _refresh_overlay(self):
         ov = self.cfg.overlay
         dpg.set_value("ov_enabled", bool(ov.get("enabled", True)))
+        dpg.set_value("ov_panel", bool(ov.get("panel", True)))
+        dpg.set_value("ov_dps", bool(ov.get("dps", True)))
         dpg.set_value("ov_font", float(ov.get("font_scale", 1.0)))
         dpg.set_value("ov_width", int(ov.get("badge_width", 270)))
         dpg.set_value("ov_y", float(ov.get("badge_y", 0.222)))

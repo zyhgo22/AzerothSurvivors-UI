@@ -80,6 +80,12 @@ DEFAULTS = {
         "badge_y": 0.222,
         "card_step": 0.1958,
         "opacity": 0.95,
+        # 游戏内「流派面板」：右侧的小黑板，只在选卡时冒出来
+        "panel": True,
+        # 游戏内「伤害统计」：左侧常驻，每个技能一行，伤害 + 占比
+        "dps": True,
+        # 当前选中的流派（builds.json 里的 id），空字符串表示不启用
+        "spec": "",
     },
     "hotkey": {
         "enabled": True,
@@ -242,6 +248,8 @@ class Config:
             "overlay_opacity": ov["opacity"],
             "overlay_font_scale": ov["font_scale"],
             "overlay_visible": bool(ov["visible"]),
+            # 游戏内流派面板的开关（悬浮层右侧那块）
+            "panel": bool(ov.get("panel", True)),
             # 当前选中的流派（builds.json 里的 id），空字符串表示不启用
             "spec": ov.get("spec") or "",
         }
@@ -330,6 +338,8 @@ class Config:
             "badge_width": int(ov.get("badge_width", 220)),
             "badge_height": int(ov.get("badge_height", 44)),
             "opacity": float(ov.get("opacity", 0.95)),
+            "panel": bool(ov.get("panel", True)),
+            "dps": bool(ov.get("dps", True)),
             "updated": time.time(),
         }
         if isinstance(extra, dict):
