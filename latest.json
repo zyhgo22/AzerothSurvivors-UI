@@ -1,10 +1,8 @@
 {
- "version": "1.0.2",
- "released": "2026-11-01 12:06",
+ "version": "1.0.4",
+ "released": "2026-11-01 14:05",
  "notes": [
-  "修复换装卡收益虚高：项链/戒指/饰品现在会扣掉换下旧装备的损失",
-  "修复「+X% 伤害」没计入已有伤害池的问题（之前虚高约 55%）",
-  "补上「30% 几率再次打击」这类效果"
+  "新增流派页（术士5条路线）；伤害统计分整体与对精英；修复首饰装备识别"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -15,9 +13,13 @@
    "sha256": "e47ccb7b85be661f56227274d7a6baa9ce20248d381db0bedb788515482d5e05",
    "size": 39905
   },
+  "azs_builds.py": {
+   "sha256": "a4c5189371a7f2b0c823c86b89c63392d758ffd97c7bd44882a994c059bba374",
+   "size": 6372
+  },
   "azs_config.py": {
-   "sha256": "3eaff4c683ef9cf57354125fa7866c9796ca9989c7ac55a029ddd1c58b3bda65",
-   "size": 13220
+   "sha256": "cb4f68f61a4f1344228e3a3cf4a1fe2685355d725f01434c8ae5016acb30083d",
+   "size": 13355
   },
   "azs_dialog.py": {
    "sha256": "d9bd14a3a06c292086529b3e5871dca0f3b541af697a2f318235dd93ec8ce811",
@@ -30,6 +32,10 @@
   "azs_model.py": {
    "sha256": "2709bdd785e7ccd05d4ebf6f2496799fcf17fed18701967c60c5e4c09e2d521b",
    "size": 46425
+  },
+  "azs_page_builds.py": {
+   "sha256": "c24c1d773fb412d3e353e9f46faa585d061f36aea3c6015629c40586a2812652",
+   "size": 15679
   },
   "azs_page_spells.py": {
    "sha256": "affd364f31e52a8f6ba1d0ac2e00ca37ed63ead2b0a8082ed229ebe86a35fa76",
@@ -44,12 +50,12 @@
    "size": 29306
   },
   "azs_paths.py": {
-   "sha256": "c76e05c9898baaf10b4fd133382971037024272d564294c0f1e6ac3e17f7f070",
+   "sha256": "5da95be17edeb9332e76c27e95c51cfac9b9533406a27798ab7fff7a7dfc006d",
    "size": 4793
   },
   "azs_proc.py": {
-   "sha256": "3d74b0a990b6a6ffe5b04cfa057f3ffb83c0506ab5a215245b8c0b7f216249e0",
-   "size": 11239
+   "sha256": "1ab00791316a9adc316e4818c79d2a2fe10a8b5ca9319d3c2fd7ddc145ad3f9d",
+   "size": 12798
   },
   "azs_theme.py": {
    "sha256": "ad985d295418858f6848f67ffe36020d4681e13ffaa774644f13be45a1bf8d3a",
@@ -60,20 +66,28 @@
    "size": 3373
   },
   "azs_ui.py": {
-   "sha256": "7b904b82df56b2bc29a7c71c3aa332383b16ea925a6293061274a86a24c9e945",
-   "size": 20475
+   "sha256": "729fbae8d648f678ab90a85de018f83954a8a36c2cb39013b9cd91a41a223b14",
+   "size": 20830
   },
   "azs_update.py": {
    "sha256": "23a3425588fff0d56eecbdcc11bc743e2f07d36cfcc059590bc127a7cb7f11ee",
    "size": 12319
   },
   "brain.py": {
-   "sha256": "31d2cd8bc1034c6fd13f6349a663a70bd7187c312c3497f632de60640cdaa246",
-   "size": 28204
+   "sha256": "abfd3710de993467524738b5512663fda98760f5501f26bbf7e953b95726d7aa",
+   "size": 29811
+  },
+  "builds.json": {
+   "sha256": "bbe4b7225563e04989ce0803204bd3927622c9947a03f8ce75f4764aad94d8c4",
+   "size": 13229
   },
   "card_texts.json": {
    "sha256": "485fde2a9f9854f90562d79b427e99e4b4ad6c12d663ab25d6d5f34f66ef90a7",
    "size": 19656
+  },
+  "gear_names.json": {
+   "sha256": "86333750a783c8f089aee9c77452250ce899332eedd70539ab6767c30f728bb4",
+   "size": 1763
   },
   "gear_ranks.json": {
    "sha256": "481fd59efa8db86c13121307ce5353214c9bd475cb6dcebe9ab7638971ff2afa",
@@ -104,16 +118,16 @@
    "size": 29799
   },
   "spellcore.py": {
-   "sha256": "ac2b15d220fc5bc9f6346d82a14ca14bf292547d317d6cd1d8082c970cb7c809",
-   "size": 20378
+   "sha256": "f1771214fc92b34fe81d732a0c1217bf002dd024be5e41ebafd0506a82aa95d3",
+   "size": 21232
   },
   "spellpanel.py": {
    "sha256": "da481279662feda23ff0b9bb06122dc01657aa08cc656e5d1a75c78cd6be0cc6",
    "size": 24526
   },
   "使用说明.txt": {
-   "sha256": "c0c8cc085b9b8e0796da097cc4c9e103aca6b09b0da47b1e4c38b0a7f16d1a1b",
-   "size": 10410
+   "sha256": "c6244a3c55b8f6f444a9afaaf28015feb8e1782dce9421affe93c03e45cbf786",
+   "size": 11435
   },
   "技能面板.cmd": {
    "sha256": "b8df3f71d7580e875bab7e3857ed64fe7c1326e6b5bb3ab8ad339207ac7b1933",
@@ -156,8 +170,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "67097bc95db0b824da743f62703a203582872a984f33bdce17b808c3c18b4179",
-   "size": 4360
+   "sha256": "a8d143c66d3b6da997cf7c8b53d54678941e63021782a0431e69b711062db69e",
+   "size": 7855
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",

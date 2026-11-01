@@ -116,7 +116,23 @@ class ProcManager:
         self.overlay_proc = None
         self.game_proc = None
         self._game_log = None
+        self._overlay_err = None
         self.last_error = ""
+
+    # ------------------------------------------------------------ 悬浮层报错
+    def _overlay_err_tail(self, n=3):
+        """把 logs\\overlay.err 最后几行揪出来，直接显示给用户看。"""
+        try:
+            if self._overlay_err:
+                self._overlay_err.flush()
+            raw = open(P.log_path("overlay.err"), "rb").read()
+            text = raw.decode("gbk", "replace").strip()
+            lines = [x.strip() for x in text.splitlines() if x.strip()]
+            if not lines:
+                return ""
+            return " / ".join(lines[-n:])[:160]
+        except Exception:
+            return ""
 
     # -------------------------------------------------------------- pid 文件
     def _pid_file(self, which):
@@ -227,17 +243,28 @@ class ProcManager:
             return False, "缺少 overlay.ps1"
         try:
             env = os.environ.copy()
+            # 悬浮层自己的错误以前被直接丢进黑洞，出问题只剩一句「启动失败」。
+            # 现在落到 logs\overlay.err，下次能看见 PowerShell 到底报了什么。
+            err_path = P.log_path("overlay.err")
+            self._overlay_err = open(err_path, "wb")
             self.overlay_proc = subprocess.Popen(
-                [ps, "-NoProfile", "-ExecutionPolicy", "Bypass",
+                [ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                  "-WindowStyle", "Hidden", "-File", script],
                 cwd=P.app_dir(), env=env,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS,
+                stdout=subprocess.DEVNULL, stderr=self._overlay_err,
+                # 这里只能给 CREATE_NO_WINDOW，**不能加 DETACHED_PROCESS**：
+                # 加了之后 PowerShell 会认为没有控制台宿主，脚本刚跑就 exit 0，
+                # 现象就是「点了开始，悬浮层灯一闪，什么也没有」。实测验证过：
+                #   CREATE_NO_WINDOW          → 活
+                #   DETACHED_PROCESS          → 退出码 0，秒退
+                #   两个都给                   → 退出码 0，秒退
+                creationflags=CREATE_NO_WINDOW,
                 close_fds=True)
             self._write_pid("overlay", self.overlay_proc.pid)
             time.sleep(0.5)
             if self.overlay_proc.poll() is not None:
-                return False, "悬浮层启动失败，看 logs/overlay.log"
+                tail = self._overlay_err_tail()
+                return False, "悬浮层启动失败%s" % ("：" + tail if tail else "，看 logs/overlay.err")
             return True, "悬浮层已启动"
         except Exception as e:
             self.last_error = str(e)

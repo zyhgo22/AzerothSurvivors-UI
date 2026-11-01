@@ -1,0 +1,21 @@
+{
+ "card_step": 0.1958,
+ "badge_y": 0.222,
+ "badge_width": 220,
+ "badge_height": 44,
+ "pause_gap": 0.8,
+ "max_picker_seconds": 600,
+ "talents": {
+  "consume_magic": false,
+  "echo_cascade": false,
+  "dot_stack_bonus": 0
+ },
+ "class_talents": {},
+ "consume_interval": 6.0,
+ "dot_lifetime": 4.0,
+ "extra_target_ratio": {},
+ "overlay_opacity": 0.95,
+ "overlay_font_scale": 1.0,
+ "overlay_visible": true,
+ "spec": "affliction"
+}

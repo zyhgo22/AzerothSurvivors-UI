@@ -242,6 +242,8 @@ class Config:
             "overlay_opacity": ov["opacity"],
             "overlay_font_scale": ov["font_scale"],
             "overlay_visible": bool(ov["visible"]),
+            # 当前选中的流派（builds.json 里的 id），空字符串表示不启用
+            "spec": ov.get("spec") or "",
         }
         try:
             _write_json(SETTINGS_PATH, payload, keep_backup=False)

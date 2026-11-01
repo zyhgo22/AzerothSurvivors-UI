@@ -25,9 +25,10 @@ NAV_ITEMS = [
     ("home", "开始游戏", "01"),
     ("overlay", "悬浮层", "02"),
     ("spells", "技能数值", "03"),
-    ("profile", "方案与天赋", "04"),
-    ("update", "检查更新", "05"),
-    ("settings", "设置", "06"),
+    ("builds", "流派", "04"),
+    ("profile", "方案与天赋", "05"),
+    ("update", "检查更新", "06"),
+    ("settings", "设置", "07"),
 ]
 
 HEADER_H = 52
@@ -199,10 +200,13 @@ class Toolkit:
     def _build_pages(self):
         from azs_pages import (build_home, build_overlay, build_profile,
                                build_settings, build_spells, build_update)
+        from azs_page_builds import BuildsPage
 
         self.pages["home"] = build_home(self, "body")
         self.pages["overlay"] = build_overlay(self, "body")
         self.pages["spells"] = build_spells(self, "body")
+        self.builds_page = BuildsPage(self)
+        self.pages["builds"] = self.builds_page.build("body")
         self.pages["profile"] = build_profile(self, "body")
         self.pages["update"] = build_update(self, "body")
         self.pages["settings"] = build_settings(self, "body")
@@ -336,7 +340,8 @@ class Toolkit:
     def _refresh_all(self):
         self._paint_status()
         self._set_toast_text()
-        for name in ("home", "overlay", "profile", "update", "settings", "spells"):
+        for name in ("home", "overlay", "profile", "update", "settings",
+                     "spells", "builds"):
             self._refresh_page(name)
 
     def _refresh_page(self, key):
@@ -434,6 +439,11 @@ class Toolkit:
         sp = getattr(self, "spells_page", None)
         if sp is not None and not sp._ready and not sp.loading:
             sp.refresh()
+
+    def _refresh_builds(self):
+        bp = getattr(self, "builds_page", None)
+        if bp is not None:
+            bp.tick()
 
     def _refresh_settings(self):
         dpg.set_value("set_gamedir", self.cfg.game_dir() or "")

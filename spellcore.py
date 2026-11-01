@@ -23,7 +23,33 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAME = os.path.dirname(HERE)
-EXE = os.path.join(GAME, "AzerothSurvivors.exe")
+
+
+def _find_exe():
+    """游戏 exe 在哪。
+
+    正常情况就在程序目录的上一层（AZS-DpsGain → AzerothSurvivors）。
+    但有两种情况这个假设会失效：
+      · 从 dist\\ 里直接运行 —— 上一层是 AZS-DpsGain，那里没有 exe
+      · 程序被单独挪到别的目录
+    所以上一层找不到时，回头问一次 azs_paths（它会去看 config.json 里存的游戏目录）。
+    """
+    p = os.path.join(GAME, "AzerothSurvivors.exe")
+    if os.path.isfile(p):
+        return p
+    try:
+        import azs_paths as _P
+        g = _P.detect_game_dir()
+    except Exception:
+        g = None
+    if g:
+        q = os.path.join(g, "AzerothSurvivors.exe")
+        if os.path.isfile(q):
+            return q
+    return p          # 实在找不到就返回原路径，让后面的 open() 报错时带上路径
+
+
+EXE = _find_exe()
 TABLE_JSON = os.path.join(HERE, "spell_table.json")
 ABIL_JSON = os.path.join(HERE, "abilities.json")
 LOC_JSON = os.path.join(HERE, "table_loc.json")

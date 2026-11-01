@@ -1,0 +1,437 @@
+{
+ "version": 1,
+ "note": "流派数据全部来自游戏客户端 zh 语言表（125030691 起）与 spell_table.json，天赋名、技能名均为客户端原文。",
+ "classes": {
+  "warlock": {
+   "name": "术士",
+   "trees": [
+    "痛苦",
+    "恶魔学识",
+    "毁灭"
+   ],
+   "specs": [
+    {
+     "id": "affliction",
+     "name": "痛苦",
+     "en": "Affliction",
+     "tag": "持续伤害 · 敌人越多越强",
+     "intro": "靠腐蚀术、痛苦诅咒这些「挂上去自己跳」的伤害磨死对面。你不用一直按技能，但挂上的每一跳都在算钱，所以「持续时间」「跳速」「额外目标」这类词条对你特别值钱。",
+     "priority": [
+      "corruption",
+      "curse_of_agony",
+      "drain_life",
+      "death_coil"
+     ],
+     "skills": [
+      {
+       "key": "corruption",
+       "zh": "腐蚀术",
+       "must": true,
+       "why": "痛苦流的地基。强化它的卡等于直接抬总伤害，优先级最高。"
+      },
+      {
+       "key": "curse_of_agony",
+       "zh": "痛苦诅咒",
+       "must": true,
+       "why": "主打多目标铺开。卡面凡是写「跳到附近敌人」，都是在放大这一条。"
+      },
+      {
+       "key": "drain_life",
+       "zh": "吸取生命",
+       "must": false,
+       "why": "补伤害顺带回血，站桩时很稳。配「生命虹吸」天赋能把 DoT 变成回血。"
+      },
+      {
+       "key": "death_coil",
+       "zh": "死亡缠绕",
+       "must": false,
+       "why": "爆发兼控制。有「死亡缠绕」词缀的项链能一次打三个目标。"
+      }
+     ],
+     "gear": [
+      {
+       "name": "诅咒者的徽记",
+       "kind": "ring",
+       "must": true,
+       "why": "持续伤害跳动速度 +36%，痛苦流最对口的一件。",
+       "id": "jewel.seal_damned",
+       "brief": "持续伤害跳速+36%"
+      },
+      {
+       "name": "哈卡之眼",
+       "kind": "amulet",
+       "must": false,
+       "why": "暴击会灼烧并流血，等于多挂一层持续伤害。",
+       "id": "amulet.eye_of_hakkar",
+       "brief": "暴击流血"
+      },
+      {
+       "name": "阿库里亚之戒",
+       "kind": "ring",
+       "must": false,
+       "why": "+46% 伤害，通吃。任何流派缺伤害都能戴。",
+       "id": "jewel.accuria",
+       "brief": "+46% 伤害"
+      },
+      {
+       "name": "饮血者指环",
+       "kind": "ring",
+       "must": false,
+       "why": "伤害的 2.1% 回血。痛苦流站着不动，这件能保命。",
+       "id": "jewel.blooddrinker",
+       "brief": "伤害 2.1% 回血"
+      }
+     ],
+     "talents": [
+      "镇压",
+      "暗影之拥",
+      "强化痛苦诅咒",
+      "强化吸取生命",
+      "夜幕",
+      "邪能专注",
+      "恐怖延伸",
+      "暗影掌握",
+      "传染",
+      "诅咒增幅",
+      "生命虹吸",
+      "黑暗契约",
+      "腐蚀之种"
+     ]
+    },
+    {
+     "id": "shadow",
+     "name": "暗影",
+     "en": "Destruction · Shadow",
+     "tag": "直伤 · 靠暗影箭一发发打",
+     "intro": "和痛苦相反：不靠磨，靠一发一发的暗影箭砸。收益集中在「暗影箭伤害」「冷却缩短」「分裂多打几个」上。毁灭树里偏暗影的那一半就是为你准备的。",
+     "priority": [
+      "shadow_bolt",
+      "death_coil",
+      "immolate",
+      "fear"
+     ],
+     "skills": [
+      {
+       "key": "shadow_bolt",
+       "zh": "暗影箭",
+       "must": true,
+       "why": "整条流派的唯一核心。「强化暗影箭」「暗影顺劈」两张关键天赋都只强化它。"
+      },
+      {
+       "key": "death_coil",
+       "zh": "死亡缠绕",
+       "must": false,
+       "why": "暗影系爆发，配「裂空之眼」项链能跳着打三个。"
+      },
+      {
+       "key": "immolate",
+       "zh": "献祭",
+       "must": false,
+       "why": "暗影箭和献祭共用冷却缩减。挂上献祭还能让暗影箭把它引爆。"
+      },
+      {
+       "key": "fear",
+       "zh": "恐惧术",
+       "must": false,
+       "why": "控场。被围住时救命的牌，不算伤害但能让你站住。"
+      }
+     ],
+     "gear": [
+      {
+       "name": "裂空之眼: 死亡缠绕",
+       "kind": "amulet",
+       "must": true,
+       "why": "死亡缠绕 +1 目标、+20% 伤害，还会跳到另外两个敌人身上。",
+       "affix": "death_coil",
+       "brief": "死亡缠绕 +1 目标"
+      },
+      {
+       "name": "塔瓦斯的强化项链",
+       "kind": "amulet",
+       "must": false,
+       "why": "-10% 冷却，暗影箭打得越勤越吃这件。",
+       "id": "amulet.talvash",
+       "brief": "-10% 冷却"
+      },
+      {
+       "name": "维克尼拉斯的护符",
+       "kind": "amulet",
+       "must": false,
+       "why": "法术 +1 个目标，暗影箭能多打一个。",
+       "id": "amulet.vek_nilash",
+       "brief": "法术 +1 目标"
+      },
+      {
+       "name": "奥妮克希亚龙牙坠饰",
+       "kind": "amulet",
+       "must": false,
+       "why": "+20% 暴击伤害，暴击还会溅射 5 码内敌人。",
+       "id": "amulet.onyxia_tooth",
+       "brief": "暴击伤害+溅射"
+      }
+     ],
+     "talents": [
+      "强化暗影箭",
+      "灾变",
+      "灾祸",
+      "清算",
+      "暗影顺劈",
+      "毁灭之力",
+      "毁灭延伸",
+      "强化灼热之痛",
+      "燃烧",
+      "火焰风暴",
+      "毁灭",
+      "强烈",
+      "混乱之雨"
+     ]
+    },
+    {
+     "id": "fire",
+     "name": "火焰",
+     "en": "Destruction · Fire",
+     "tag": "爆发 · 一发灵魂之火顶一套",
+     "intro": "靠灼热之痛、献祭、灵魂之火打高额直伤，范围技能（火焰之雨、地狱烈焰）清场。追求的是「一发打出去就很疼」，所以「+伤害」「+暴击」「-冷却」都直接换算成伤害。",
+     "priority": [
+      "soul_fire",
+      "searing_pain",
+      "immolate",
+      "rain_of_fire"
+     ],
+     "skills": [
+      {
+       "key": "soul_fire",
+       "zh": "灵魂之火",
+       "must": true,
+       "why": "术士面板伤害最高的单体技能（基础 600）。「命定时刻护符」专门强化它。"
+      },
+      {
+       "key": "searing_pain",
+       "zh": "灼热之痛",
+       "must": true,
+       "why": "短冷却高频率的主力输出，「强化灼热之痛」一次抬它和献祭两个。"
+      },
+      {
+       "key": "immolate",
+       "zh": "献祭",
+       "must": true,
+       "why": "既是 DoT 也是引爆点：暗影箭和灼热之痛会让被献祭的敌人爆炸。"
+      },
+      {
+       "key": "rain_of_fire",
+       "zh": "火焰之雨",
+       "must": false,
+       "why": "清群用。终极天赋「混乱之雨」每 13 秒白送第二道。"
+      },
+      {
+       "key": "hellfire",
+       "zh": "地狱烈焰",
+       "must": false,
+       "why": "贴身清场，会烧到自己，注意血量。"
+      }
+     ],
+     "gear": [
+      {
+       "name": "命定时刻护符: 灵魂之火",
+       "kind": "amulet",
+       "must": true,
+       "why": "灵魂之火 +60% 伤害、触发频率 +100%。火焰流最该刷的一件。",
+       "affix": "soul_fire",
+       "brief": "灵魂之火 +60%"
+      },
+      {
+       "name": "炎魔之王项圈",
+       "kind": "amulet",
+       "must": false,
+       "why": "击杀的敌人会爆炸，清群时等于连锁反应。",
+       "id": "amulet.fire_lord",
+       "brief": "击杀爆炸"
+      },
+      {
+       "name": "法术能量戒指",
+       "kind": "ring",
+       "must": false,
+       "why": "+21% 效果范围，火焰之雨和地狱烈焰覆盖更大。",
+       "id": "jewel.spell_power",
+       "brief": "+21% 范围"
+      },
+      {
+       "name": "普瑞斯托的谋略护符",
+       "kind": "amulet",
+       "must": false,
+       "why": "+16% 伤害 +4% 暴击，稳。",
+       "id": "amulet.prestor",
+       "brief": "+16% 伤害 +4% 暴击"
+      },
+      {
+       "name": "短暂能量护符",
+       "kind": "trinket",
+       "must": false,
+       "why": "-19% 冷却，灵魂之火这种长冷却技能收益最大。",
+       "id": "jewel.tep",
+       "brief": "-19% 冷却"
+      }
+     ],
+     "talents": [
+      "强化暗影箭",
+      "灾变",
+      "灾祸",
+      "清算",
+      "暗影顺劈",
+      "毁灭之力",
+      "毁灭延伸",
+      "强化灼热之痛",
+      "燃烧",
+      "火焰风暴",
+      "毁灭",
+      "强烈",
+      "混乱之雨"
+     ]
+    },
+    {
+     "id": "demon_single",
+     "name": "恶魔 · 单体",
+     "en": "Demonology",
+     "tag": "养一只大的，让它替你打",
+     "intro": "客户端恶魔学识树有两条路。这条是「养一只强的」：小鬼、魅魔、恶魔卫士，靠强化单个恶魔的伤害和暴击。你自己打得少，主要靠它输出。",
+     "priority": [
+      "demonic_empowerment",
+      "shadow_bolt",
+      "corruption"
+     ],
+     "skills": [
+      {
+       "key": "demonic_empowerment",
+       "zh": "恶魔增效",
+       "must": true,
+       "why": "恶魔流唯一的主动技能，16 秒冷却。用它把恶魔的输出顶上去。"
+      },
+      {
+       "key": "shadow_bolt",
+       "zh": "暗影箭",
+       "must": false,
+       "why": "恶魔在打的时候你自己也别闲着，暗影箭是填充伤害。"
+      },
+      {
+       "key": "corruption",
+       "zh": "腐蚀术",
+       "must": false,
+       "why": "挂上就走位，不占你操作。"
+      }
+     ],
+     "gear": [
+      {
+       "name": "阿库里亚之戒",
+       "kind": "ring",
+       "must": false,
+       "why": "+46% 伤害，如果恶魔伤害算在你头上，这件最直接。",
+       "id": "jewel.accuria",
+       "brief": "+46% 伤害"
+      },
+      {
+       "name": "弗丁的印记",
+       "kind": "amulet",
+       "must": false,
+       "why": "+15% 伤害，简单粗暴。",
+       "id": "amulet.mark_of_fordring",
+       "brief": "+15% 伤害"
+      },
+      {
+       "name": "酋长的号角",
+       "kind": "trinket",
+       "must": false,
+       "why": "增益效果 +41%。恶魔增效属于增益，理论上吃得到（待实测）。",
+       "id": "jewel.war_horn",
+       "brief": "增益 +41%"
+      }
+     ],
+     "talents": [
+      "恶魔之拥",
+      "邪能智力",
+      "邪能耐力",
+      "强化生命通道",
+      "召唤小鬼",
+      "邪恶强化",
+      "强化魅魔",
+      "恶魔学识大师",
+      "恶魔契约",
+      "恶魔知识",
+      "强化奴役恶魔",
+      "恶魔牺牲",
+      "召唤恶魔卫士"
+     ],
+     "caution": "这条流派主要靠被动召唤，插件暂时没法用伤害记录验证它到底有没有跑起来。"
+    },
+    {
+     "id": "demon_swarm",
+     "name": "恶魔 · 铺场",
+     "en": "Demonology · Swarm",
+     "tag": "养一群，靠数量压过去",
+     "intro": "还是恶魔学识树，但走的是「多」。恶魔契约每次击杀有几率撕开裂隙放出小鬼，最多同时 5 只；终极天赋「召唤恶魔卫士」还会让每只恶魔的攻击劈砍目标附近的 2 个敌人。恶魔越多，越适合打群。",
+     "priority": [
+      "demonic_empowerment",
+      "corruption",
+      "rain_of_fire"
+     ],
+     "skills": [
+      {
+       "key": "demonic_empowerment",
+       "zh": "恶魔增效",
+       "must": true,
+       "why": "恶魔越多，一次增效的总收益越高。"
+      },
+      {
+       "key": "corruption",
+       "zh": "腐蚀术",
+       "must": false,
+       "why": "范围铺 DoT，配合恶魔群清场。"
+      },
+      {
+       "key": "rain_of_fire",
+       "zh": "火焰之雨",
+       "must": false,
+       "why": "恶魔在近战位咬，你在后面下火雨，覆盖同一片区域。"
+      }
+     ],
+     "gear": [
+      {
+       "name": "法术能量戒指",
+       "kind": "ring",
+       "must": false,
+       "why": "+21% 效果范围，配合恶魔群的近战位清场。",
+       "id": "jewel.spell_power",
+       "brief": "+21% 范围"
+      },
+      {
+       "name": "炎魔之王项圈",
+       "kind": "amulet",
+       "must": false,
+       "why": "击杀爆炸，铺场时连锁收益高。",
+       "id": "amulet.fire_lord",
+       "brief": "击杀爆炸"
+      },
+      {
+       "name": "阿库里亚之戒",
+       "kind": "ring",
+       "must": false,
+       "why": "+46% 伤害通吃。",
+       "id": "jewel.accuria",
+       "brief": "+46% 伤害"
+      }
+     ],
+     "talents": [
+      "恶魔契约",
+      "召唤恶魔卫士",
+      "邪恶强化",
+      "恶魔学识大师",
+      "恶魔之拥",
+      "邪能耐力",
+      "恶魔知识",
+      "强化奴役恶魔"
+     ],
+     "caution": "这条流派主要靠被动召唤，插件暂时没法用伤害记录验证它到底有没有跑起来。"
+    }
+   ]
+  }
+ }
+}

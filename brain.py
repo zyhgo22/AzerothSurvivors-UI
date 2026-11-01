@@ -60,6 +60,8 @@ DEFAULT_SETTINGS = {
     "dot_lifetime": 4.0,
     # 额外目标的伤害折扣（按技能名覆盖内置表）
     "extra_target_ratio": {},
+    # 工具箱里选中的流派 id（对应 builds.json），空表示不启用
+    "spec": "",
 }
 
 
@@ -100,8 +102,10 @@ class State(object):
     def __init__(self):
         self.stats = {}
         self.meter = []
+        self.boss_meter = []       # 只算打精英/首领的那部分，格式同 meter
+        self.boss_ts = 0.0
         self.spells = {}
-        self.gear = {}             # {"amulet": ("corruption", 7), ...}
+        self.gear = {}             # {"amulet": {"id": "fire_lord", "affix": None, "rank": 1}}
         self.offer = None          # dict or None
         self.offer_ts = 0.0
         self.resolved = True       # 当前 offer 是否已被选掉（收到 resume）
@@ -155,13 +159,16 @@ def parse_meter(payload):
     return rows
 
 
-def parse_gear(payload):
-    """从 AZSM 里捞出身上穿的项链 / 戒指 / 饰品
+RARITY = ("common", "uncommon", "rare", "epic", "legendary", "poor", "artifact")
 
-    AZSM 的每条 R 记录都带一个内部 id，装备是 URL 编码的：
-      R,<id>,47,d,<id>,amulet%3Alegendary%3Acorruption%3Ar7,...
-                        ↑ 项链·传说·腐蚀术·7 级
-    装备卡只能戴一件，换装时得知道"身上那件是几级"，靠这个补上。
+
+def parse_gear(payload):
+    """从 AZSM 里捞出身上穿的项链 / 戒指 / 饰品。
+
+    装备在内存里是 URL 编码的，而且有两种写法：
+      R,<id>,12,d,<id>,amulet%3Afire_lord%3Ar1,...     固定装备：炎魔之王项圈 r1
+      R,<id>,47,d,<id>,amulet%3Alegendary%3Acorruption%3Ar7,...  词缀装备：腐蚀术 r7
+    两者的差别是中间多不多一个稀有度词，所以按段数分开认。
     """
     out = {}
     for seg in (payload or "").split(";"):
@@ -173,9 +180,17 @@ def parse_gear(payload):
         raw = parts[5]
         if "%3A" in raw.upper():
             raw = urllib.parse.unquote(raw)
-        m = re.match(r"(amulet|ring|trinket):([\w\-]+):([\w\-]+):r(\d+)$", raw)
-        if m:
-            out[m.group(1)] = (m.group(3), int(m.group(4)))
+        m = re.match(r"(amulet|ring|trinket):(.+):r(\d+)$", raw)
+        if not m:
+            continue
+        slot, mid, rank = m.group(1), m.group(2), int(m.group(3))
+        bits = mid.split(":")
+        if len(bits) >= 2 and bits[0].lower() in RARITY:
+            # 词缀装备：稀有度 + 词缀
+            out[slot] = {"id": None, "affix": bits[-1], "rank": rank,
+                         "rarity": bits[0].lower()}
+        else:
+            out[slot] = {"id": mid, "affix": None, "rank": rank, "rarity": None}
     return out
 
 
@@ -551,9 +566,26 @@ def build_state():
         "class": ST.cls,
         "run_level": ST.run.get("lvl"),
         "slots": slots,
+        # ---- 流派面板要用的原始数据
+        "spec": SETTINGS.get("spec") or "",
+        "gear": ST.gear,
+        "spells": dict((k, v.get("rank")) for k, v in (ST.spells or {}).items()),
+        "meter": _meter_out(ST.meter),
+        "boss_meter": _meter_out(ST.boss_meter),
+        "boss_dps": round(sum(r["dps"] for r in ST.boss_meter), 1),
         "updated": now,
         "game_alive": ST.game_seen,
     }
+
+
+def _meter_out(rows):
+    """伤害条精简后写进 state.json，只留界面要显示的字段。"""
+    return [{
+        "name": r["name"],
+        "dmg": round(r["dmg"]),
+        "dps": round(r["dps"], 1),
+        "share": round(r["share"], 4),
+    } for r in (rows or [])]
 
 
 # ---------------------------------------------------------------- 日志解析
@@ -625,6 +657,12 @@ def handle_line(line):
             if rows:
                 ST.meter = rows
                 ST.meter_ts = ts or time.time()
+            return True
+        if tag == "AZSBOSSDMG":
+            rows = parse_meter(body)
+            if rows:
+                ST.boss_meter = rows
+                ST.boss_ts = ts or time.time()
             return True
         if tag == "AZSSPELLS":
             sp = parse_spells(body)
