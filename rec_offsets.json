@@ -1,0 +1,574 @@
+{
+ "fall_time": {
+  "offset": null,
+  "id": 101
+ },
+ "doc_position": {
+  "offset": null,
+  "id": 101
+ },
+ "fill_mode": {
+  "offset": null,
+  "id": 101
+ },
+ "planes": {
+  "offset": null,
+  "id": 101
+ },
+ "chunks": {
+  "offset": null,
+  "id": 101
+ },
+ "input": {
+  "offset": null,
+  "id": 101
+ },
+ "opaque_render_method": {
+  "offset": null,
+  "id": 101
+ },
+ "custom_size": {
+  "offset": null,
+  "id": 101
+ },
+ "monospace_width": {
+  "offset": null,
+  "id": 101
+ },
+ "metrics_opt": {
+  "offset": null,
+  "id": 101
+ },
+ "scattering_asymmetry": {
+  "offset": null,
+  "id": 101
+ },
+ "shadow_depth_bias": {
+  "offset": null,
+  "id": 101
+ },
+ "hue": {
+  "offset": null,
+  "id": 101
+ },
+ "buffer_size": {
+  "offset": null,
+  "id": 101
+ },
+ "format": {
+  "offset": null,
+  "id": 101
+ },
+ "classes": {
+  "offset": null,
+  "id": 101
+ },
+ "variant_names": {
+  "offset": null,
+  "id": 101
+ },
+ "cleave": {
+  "offset": 118069380,
+  "id": 101
+ },
+ "whirlwind": {
+  "offset": 118069500,
+  "id": 101
+ },
+ "thunder_clap": {
+  "offset": 118069620,
+  "id": 101
+ },
+ "mortal_strike": {
+  "offset": 118069740,
+  "id": 101
+ },
+ "execute": {
+  "offset": 118069860,
+  "id": 101
+ },
+ "demo_shout": {
+  "offset": 118069980,
+  "id": 101
+ },
+ "battle_shout": {
+  "offset": 118070100,
+  "id": 101
+ },
+ "bloodthirst": {
+  "offset": 118070220,
+  "id": 101
+ },
+ "rend": {
+  "offset": 118070340,
+  "id": 101
+ },
+ "shield_slam": {
+  "offset": 118070460,
+  "id": 101
+ },
+ "bloodrage": {
+  "offset": 118070580,
+  "id": 101
+ },
+ "consecration": {
+  "offset": 118070700,
+  "id": 101
+ },
+ "exorcism": {
+  "offset": 118070820,
+  "id": 101
+ },
+ "hammer_of_wrath": {
+  "offset": 118070940,
+  "id": 101
+ },
+ "holy_shock": {
+  "offset": 118071060,
+  "id": 101
+ },
+ "holy_wrath": {
+  "offset": 118071180,
+  "id": 101
+ },
+ "judgement": {
+  "offset": 118071300,
+  "id": 101
+ },
+ "hammer_of_justice": {
+  "offset": 118071420,
+  "id": 101
+ },
+ "holy_light": {
+  "offset": 118071540,
+  "id": 101
+ },
+ "divine_shield": {
+  "offset": 118071660,
+  "id": 101
+ },
+ "holy_shield": {
+  "offset": 118071780,
+  "id": 101
+ },
+ "redemption": {
+  "offset": 118071900,
+  "id": 101
+ },
+ "auto_shot": {
+  "offset": 118072020,
+  "id": 101
+ },
+ "arcane_shot": {
+  "offset": 118072140,
+  "id": 101
+ },
+ "multi_shot": {
+  "offset": 118072260,
+  "id": 101
+ },
+ "serpent_sting": {
+  "offset": 118072380,
+  "id": 101
+ },
+ "volley": {
+  "offset": 118072500,
+  "id": 101
+ },
+ "explosive_trap": {
+  "offset": 118072620,
+  "id": 101
+ },
+ "concussive_shot": {
+  "offset": 118072740,
+  "id": 101
+ },
+ "aimed_shot": {
+  "offset": 118072860,
+  "id": 101
+ },
+ "immolation_trap": {
+  "offset": 118072980,
+  "id": 101
+ },
+ "frost_trap": {
+  "offset": 118073100,
+  "id": 101
+ },
+ "hunters_mark": {
+  "offset": 118073220,
+  "id": 101
+ },
+ "sinister_strike": {
+  "offset": 118073340,
+  "id": 101
+ },
+ "eviscerate": {
+  "offset": 118073460,
+  "id": 101
+ },
+ "blade_flurry": {
+  "offset": 118073580,
+  "id": 101
+ },
+ "rupture": {
+  "offset": 118073700,
+  "id": 101
+ },
+ "kidney_shot": {
+  "offset": 118073820,
+  "id": 101
+ },
+ "gouge": {
+  "offset": 118073940,
+  "id": 101
+ },
+ "ghostly_strike": {
+  "offset": 118074060,
+  "id": 101
+ },
+ "adrenaline_rush": {
+  "offset": 118074180,
+  "id": 101
+ },
+ "backstab": {
+  "offset": 118074300,
+  "id": 101
+ },
+ "slice_and_dice": {
+  "offset": 118074420,
+  "id": 101
+ },
+ "seal_fate": {
+  "offset": 118074540,
+  "id": 101
+ },
+ "smite": {
+  "offset": 118074660,
+  "id": 101
+ },
+ "sw_pain": {
+  "offset": 118074780,
+  "id": 101
+ },
+ "mind_blast": {
+  "offset": 118074900,
+  "id": 101
+ },
+ "holy_nova": {
+  "offset": 118075020,
+  "id": 101
+ },
+ "pw_shield": {
+  "offset": 118075140,
+  "id": 101
+ },
+ "renew": {
+  "offset": 118075260,
+  "id": 101
+ },
+ "holy_fire": {
+  "offset": 118075380,
+  "id": 101
+ },
+ "mind_flay": {
+  "offset": 118075500,
+  "id": 101
+ },
+ "psychic_scream": {
+  "offset": 118075620,
+  "id": 101
+ },
+ "devouring_plague": {
+  "offset": 118075740,
+  "id": 101
+ },
+ "lightwell": {
+  "offset": 118075860,
+  "id": 101
+ },
+ "lightning_bolt": {
+  "offset": 118075980,
+  "id": 101
+ },
+ "chain_lightning": {
+  "offset": 118076100,
+  "id": 101
+ },
+ "earth_shock": {
+  "offset": 118076220,
+  "id": 101
+ },
+ "flame_shock": {
+  "offset": 118076340,
+  "id": 101
+ },
+ "frost_shock": {
+  "offset": 118076460,
+  "id": 101
+ },
+ "lightning_shield": {
+  "offset": 118076580,
+  "id": 101
+ },
+ "magma_totem": {
+  "offset": 118076700,
+  "id": 101
+ },
+ "searing_totem": {
+  "offset": 118076820,
+  "id": 101
+ },
+ "fire_nova": {
+  "offset": 118076940,
+  "id": 101
+ },
+ "healing_wave": {
+  "offset": 118077060,
+  "id": 101
+ },
+ "call_of_flame": {
+  "offset": 118077180,
+  "id": 101
+ },
+ "fireball": {
+  "offset": 118077300,
+  "id": 101
+ },
+ "frostbolt": {
+  "offset": 118077420,
+  "id": 101
+ },
+ "arcane_missiles": {
+  "offset": 118077540,
+  "id": 101
+ },
+ "frost_nova": {
+  "offset": 118077660,
+  "id": 101
+ },
+ "arcane_explosion": {
+  "offset": 118077780,
+  "id": 101
+ },
+ "blizzard": {
+  "offset": 118077900,
+  "id": 101
+ },
+ "flamestrike": {
+  "offset": 118078020,
+  "id": 101
+ },
+ "fire_blast": {
+  "offset": 118078140,
+  "id": 101
+ },
+ "cone_of_cold": {
+  "offset": 118078260,
+  "id": 101
+ },
+ "blast_wave": {
+  "offset": 118078380,
+  "id": 101
+ },
+ "pyroblast": {
+  "offset": 118078500,
+  "id": 101
+ },
+ "ice_barrier": {
+  "offset": 118078620,
+  "id": 101
+ },
+ "polymorph": {
+  "offset": 118078740,
+  "id": 101
+ },
+ "shadow_bolt": {
+  "offset": 118078860,
+  "id": 101
+ },
+ "corruption": {
+  "offset": 118078980,
+  "id": 101
+ },
+ "immolate": {
+  "offset": 118079100,
+  "id": 101
+ },
+ "curse_of_agony": {
+  "offset": 118079220,
+  "id": 101
+ },
+ "rain_of_fire": {
+  "offset": 118079340,
+  "id": 101
+ },
+ "hellfire": {
+  "offset": 118079460,
+  "id": 101
+ },
+ "death_coil": {
+  "offset": 118079580,
+  "id": 101
+ },
+ "searing_pain": {
+  "offset": 118079700,
+  "id": 101
+ },
+ "drain_life": {
+  "offset": 118079820,
+  "id": 101
+ },
+ "fear": {
+  "offset": 118079940,
+  "id": 101
+ },
+ "soul_fire": {
+  "offset": 118080060,
+  "id": 101
+ },
+ "demonic_empowerment": {
+  "offset": 118080180,
+  "id": 101
+ },
+ "wrath": {
+  "offset": 118080300,
+  "id": 101
+ },
+ "moonfire": {
+  "offset": 118080420,
+  "id": 101
+ },
+ "starfire": {
+  "offset": 118080540,
+  "id": 101
+ },
+ "hurricane": {
+  "offset": 118080660,
+  "id": 101
+ },
+ "insect_swarm": {
+  "offset": 118080780,
+  "id": 101
+ },
+ "entangling_roots": {
+  "offset": 118080900,
+  "id": 101
+ },
+ "rejuvenation": {
+  "offset": 118081020,
+  "id": 101
+ },
+ "regrowth": {
+  "offset": 118081140,
+  "id": 101
+ },
+ "thorns": {
+  "offset": 118081260,
+  "id": 101
+ },
+ "swipe": {
+  "offset": 118081380,
+  "id": 101
+ },
+ "shred": {
+  "offset": 118081500,
+  "id": 101
+ },
+ "faerie_fire": {
+  "offset": 118081620,
+  "id": 101
+ },
+ "perception": {
+  "offset": 118081740,
+  "id": 101
+ },
+ "blood_fury": {
+  "offset": 118081860,
+  "id": 101
+ },
+ "stoneform": {
+  "offset": 118081980,
+  "id": 101
+ },
+ "shadowmeld": {
+  "offset": 118082100,
+  "id": 101
+ },
+ "will_of_the_forsaken": {
+  "offset": 118082220,
+  "id": 101
+ },
+ "war_stomp": {
+  "offset": 118082340,
+  "id": 101
+ },
+ "escape_artist": {
+  "offset": 118082460,
+  "id": 101
+ },
+ "berserking": {
+  "offset": 118082580,
+  "id": 101
+ },
+ "penance": {
+  "offset": 118082700,
+  "id": 101
+ },
+ "arcane_power": {
+  "offset": 118082820,
+  "id": 101
+ },
+ "prestor": {
+  "offset": null,
+  "id": 101
+ },
+ "animated_chain": {
+  "offset": null,
+  "id": 101
+ },
+ "woven_ivy": {
+  "offset": null,
+  "id": 101
+ },
+ "darkmoon": {
+  "offset": null,
+  "id": 101
+ },
+ "jeklik": {
+  "offset": null,
+  "id": 101
+ },
+ "eye_of_hakkar": {
+  "offset": null,
+  "id": 101
+ },
+ "steadfast_might": {
+  "offset": null,
+  "id": 101
+ },
+ "enlightenment": {
+  "offset": null,
+  "id": 101
+ },
+ "vek_nilash": {
+  "offset": null,
+  "id": 101
+ },
+ "fallen_dragon": {
+  "offset": null,
+  "id": 101
+ },
+ "malice_stone": {
+  "offset": null,
+  "id": 101
+ },
+ "onyxia_tooth": {
+  "offset": null,
+  "id": 101
+ },
+ "fire_lord": {
+  "offset": null,
+  "id": 101
+ }
+}

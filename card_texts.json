@@ -1,0 +1,740 @@
+[
+ {
+  "name": "原始的附魔南海海带",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_26",
+  "rank": null,
+  "worn": false,
+  "lines": "+30% 幸运\n+25% 金币",
+  "title": "原始的附魔南海海带"
+ },
+ {
+  "name": "命定时刻护符: 灵魂之火",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_21",
+  "rank": null,
+  "worn": false,
+  "lines": "灵魂之火：+60% 伤害\n灵魂之火：触发频率 +100%",
+  "title": "命定时刻护符: 灵魂之火"
+ },
+ {
+  "name": "哈卡之眼",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_22",
+  "rank": null,
+  "worn": false,
+  "lines": "+5% 暴击几率\n你的暴击会灼烧并使目标流血，在4秒内额外造成80%",
+  "title": "哈卡之眼"
+ },
+ {
+  "name": "坚定力量徽章",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Amulet_03",
+  "rank": null,
+  "worn": false,
+  "lines": "+10% 伤害减免\n+15% 最大生命值\n近战攻击者受到其造成伤害的100%",
+  "title": "坚定力量徽章"
+ },
+ {
+  "name": "塔瓦斯的强化项链",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_02",
+  "rank": null,
+  "worn": false,
+  "lines": "-10% 冷却时间",
+  "title": "塔瓦斯的强化项链"
+ },
+ {
+  "name": "奥妮克希亚龙牙坠饰",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_09",
+  "rank": null,
+  "worn": false,
+  "lines": "+4% 暴击几率\n+20% 暴击伤害\n你的暴击对5码内的敌人溅射30%，每秒最多6次",
+  "title": "奥妮克希亚龙牙坠饰"
+ },
+ {
+  "name": "弗丁的印记",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Talisman_07",
+  "rank": null,
+  "worn": false,
+  "lines": "+15% 伤害",
+  "title": "弗丁的印记"
+ },
+ {
+  "name": "怨恨之石垂饰",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_29Naxxramas",
+  "rank": null,
+  "worn": false,
+  "lines": "20%几率让法术施放两次\n-8% 冷却时间",
+  "title": "怨恨之石垂饰"
+ },
+ {
+  "name": "普瑞斯托的谋略护符",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_17",
+  "rank": null,
+  "worn": false,
+  "lines": "+16% 伤害\n+4% 暴击几率",
+  "title": "普瑞斯托的谋略护符"
+ },
+ {
+  "name": "暗月护符",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_14",
+  "rank": null,
+  "worn": false,
+  "lines": "-12% 冷却时间\n+8% 移动速度",
+  "title": "暗月护符"
+ },
+ {
+  "name": "活化链甲项链",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_01",
+  "rank": null,
+  "worn": false,
+  "lines": "+25% 最大生命值\n+8% 伤害减免",
+  "title": "活化链甲项链"
+ },
+ {
+  "name": "炎魔之王项圈",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Amulet_05",
+  "rank": null,
+  "worn": false,
+  "lines": "你击杀的敌人会爆炸，造成其最大生命值15%的伤害，每秒最多4次",
+  "title": "炎魔之王项圈"
+ },
+ {
+  "name": "维克尼拉斯的护符",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_AhnQiraj_01",
+  "rank": null,
+  "worn": false,
+  "lines": "你的法术：+1 个目标\n+5% 伤害",
+  "title": "维克尼拉斯的护符"
+ },
+ {
+  "name": "编织常青藤项链",
+  "kind": "amulet",
+  "icon": "INV_Misc_Herb_15",
+  "rank": null,
+  "worn": false,
+  "lines": "每秒+6.0生命值\n+12% 最大生命值\n+12% 移动速度",
+  "title": "编织常青藤项链"
+ },
+ {
+  "name": "耶克里克的乳白护符",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_03",
+  "rank": null,
+  "worn": false,
+  "lines": "按造成的所有伤害的3%治疗你\n每次击杀恢复1.0点生命值",
+  "title": "耶克里克的乳白护符"
+ },
+ {
+  "name": "裂空之眼: 死亡缠绕",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_16",
+  "rank": null,
+  "worn": false,
+  "lines": "死亡缠绕：+1 个目标\n死亡缠绕：+20% 伤害\n死亡缠绕的命中会跳跃到另外2个敌人身上，造成30%",
+  "title": "裂空之眼: 死亡缠绕"
+ },
+ {
+  "name": "陨落巨龙垂饰",
+  "kind": "amulet",
+  "icon": "INV_Jewelry_Necklace_12",
+  "rank": null,
+  "worn": false,
+  "lines": "致命一击会改为让你保留50%生命值，每60秒一次\n+20% 最大生命值\n每秒+5.0生命值",
+  "title": "陨落巨龙垂饰"
+ },
+ {
+  "name": "冰锥术",
+  "kind": "new",
+  "icon": "Spell_Frost_Glacier",
+  "rank": null,
+  "worn": false,
+  "lines": "对你前方12码锥形范围内的所有敌人造成28点冰霜伤害。 使其减速60%，持续3秒。",
+  "title": "新法术：冰锥术"
+ },
+ {
+  "name": "冰霜新星",
+  "kind": "new",
+  "icon": "Spell_Frost_FrostNova",
+  "rank": null,
+  "worn": false,
+  "lines": "对你10码内的所有敌人造成8.9点冰霜伤害。 使其定身3秒；对首领的持续时间为四分之一。",
+  "title": "新法术：冰霜新星"
+ },
+ {
+  "name": "冲击波",
+  "kind": "new",
+  "icon": "Spell_Holy_Excorcism_02",
+  "rank": null,
+  "worn": false,
+  "lines": "对你10码内的所有敌人造成30点火焰伤害。 使其减速50%，持续3秒。\n+18% 伤害",
+  "title": "新法术：冲击波"
+ },
+ {
+  "name": "吸取生命",
+  "kind": "new",
+  "icon": "Spell_Shadow_LifeDrain02",
+  "rank": null,
+  "worn": false,
+  "lines": "折磨22码内的生命值最高的2个敌人（尚未受折磨的）：在5秒内分5跳造成286点暗影伤害。优先攻击首领和精英。 按造成伤害的60%治疗你。",
+  "title": "新法术：吸取生命"
+ },
+ {
+  "name": "圣盾术",
+  "kind": "new",
+  "icon": "Spell_Holy_DivineIntervention",
+  "rank": null,
+  "worn": false,
+  "lines": "使你免疫所有伤害，持续5.6秒。生命值低于35%时施放。",
+  "title": "新法术：圣盾术"
+ },
+ {
+  "name": "地狱烈焰",
+  "kind": "new",
+  "icon": "Spell_Fire_Incinerate",
+  "rank": null,
+  "worn": false,
+  "lines": "对你7.3码内的所有敌人造成12点火焰伤害。\n+18% 伤害",
+  "title": "新法术：地狱烈焰"
+ },
+ {
+  "name": "奥术飞弹",
+  "kind": "new",
+  "icon": "Spell_Nature_StarFall",
+  "rank": null,
+  "worn": false,
+  "lines": "向28码内的随机敌人发射4枚飞弹，每枚造成43点奥术伤害；附近有首领或精英时，全部射向它们。附近敌人很少时，多枚飞弹可能命中同一个敌人。",
+  "title": "新法术：奥术飞弹"
+ },
+ {
+  "name": "寒冰护体",
+  "kind": "new",
+  "icon": "Spell_Ice_Lament",
+  "rank": null,
+  "worn": false,
+  "lines": "吸收你受到的接下来176点伤害，即最大生命值的73%。护盾破碎后再次施放。\n+16% 吸收",
+  "title": "新法术：寒冰护体"
+ },
+ {
+  "name": "恶魔增效",
+  "kind": "new",
+  "icon": "Spell_Nature_RemoveCurse",
+  "rank": null,
+  "worn": false,
+  "lines": "你的恶魔造成的伤害提高40%，持续11秒。当敌人进入30码内且有恶魔为你作战时施放。",
+  "title": "新法术：恶魔增效"
+ },
+ {
+  "name": "愤怒之锤",
+  "kind": "new",
+  "icon": "Ability_ThunderClap",
+  "rank": null,
+  "worn": false,
+  "lines": "对28码内的最近的2个敌人各造成208点神圣伤害。优先攻击首领和精英。",
+  "title": "新法术：愤怒之锤"
+ },
+ {
+  "name": "救赎",
+  "kind": "new",
+  "icon": "Spell_Holy_Resurrection",
+  "rank": null,
+  "worn": false,
+  "lines": "你击杀的敌人有12%的几率爆发圣光，对尸体9.8码内的所有敌人造成200点神圣伤害。爆发造成的击杀可能再引发一次爆发。每秒最多两次爆发。\n+25% 伤害",
+  "title": "新法术：救赎"
+ },
+ {
+  "name": "暴风雪",
+  "kind": "new",
+  "icon": "Spell_Frost_IceStorm",
+  "rank": null,
+  "worn": false,
+  "lines": "落在30码内敌人最密集的地方：该处9码内的所有敌人每1秒受到6.5点冰霜伤害，持续9.8秒，共计65点。 使其减速40%，持续1.5秒。",
+  "title": "新法术：暴风雪"
+ },
+ {
+  "name": "死亡缠绕",
+  "kind": "new",
+  "icon": "Spell_Shadow_DeathCoil",
+  "rank": null,
+  "worn": false,
+  "lines": "对25码内的最近的敌人造成147点暗影伤害。优先攻击首领和精英。 按造成的全部伤害治疗你。",
+  "title": "新法术：死亡缠绕"
+ },
+ {
+  "name": "火焰之雨",
+  "kind": "new",
+  "icon": "Spell_Shadow_RainOfFire",
+  "rank": null,
+  "worn": false,
+  "lines": "落在30码内敌人最密集的地方：该处8.4码内的所有敌人每1.9秒受到13点火焰伤害，持续11秒，共计79点。\n+18% 伤害",
+  "title": "新法术：火焰之雨"
+ },
+ {
+  "name": "火焰冲击",
+  "kind": "new",
+  "icon": "Spell_Fire_Fireball",
+  "rank": null,
+  "worn": false,
+  "lines": "对22码内的一个随机敌人造成133点火焰伤害。\n+25% 伤害",
+  "title": "新法术：火焰冲击"
+ },
+ {
+  "name": "灵魂之火",
+  "kind": "new",
+  "icon": "Spell_Fire_Fireball02",
+  "rank": null,
+  "worn": false,
+  "lines": "你的击杀会收集灵魂碎片，每1.1秒最多一个。达到5个碎片时，一次免费的灵魂之火会对35码内的最强壮的敌人造成1046点火焰伤害。",
+  "title": "新法术：灵魂之火"
+ },
+ {
+  "name": "炎爆术",
+  "kind": "new",
+  "icon": "Spell_Fire_Fireball02",
+  "rank": null,
+  "worn": false,
+  "lines": "对35码内的最近的敌人造成547点火焰伤害。优先攻击首领和精英。",
+  "title": "新法术：炎爆术"
+ },
+ {
+  "name": "烈焰风暴",
+  "kind": "new",
+  "icon": "Spell_Fire_SelfDestruct",
+  "rank": null,
+  "worn": false,
+  "lines": "落在30码内敌人最密集的地方：该处8码内的所有敌人每2.1秒受到16点火焰伤害，持续8.4秒，共计65点。\n+18% 伤害",
+  "title": "新法术：烈焰风暴"
+ },
+ {
+  "name": "痛苦诅咒",
+  "kind": "new",
+  "icon": "Spell_Shadow_CurseOfSargeras",
+  "rank": null,
+  "worn": false,
+  "lines": "折磨30码内的生命值最高的4个敌人（尚未受折磨的）：在15秒内分15跳造成490点暗影伤害。优先攻击首领和精英。",
+  "title": "新法术：痛苦诅咒"
+ },
+ {
+  "name": "神圣之盾",
+  "kind": "new",
+  "icon": "Spell_Holy_BlessingOfProtection",
+  "rank": null,
+  "worn": false,
+  "lines": "在14秒内，近战攻击你的敌人受到58点伤害。敌人进入30码内时施放。",
+  "title": "新法术：神圣之盾"
+ },
+ {
+  "name": "神圣愤怒",
+  "kind": "new",
+  "icon": "Spell_Holy_Excorcism",
+  "rank": null,
+  "worn": false,
+  "lines": "对你15码内的所有敌人造成104点神圣伤害。",
+  "title": "新法术：神圣愤怒"
+ },
+ {
+  "name": "神圣震击",
+  "kind": "new",
+  "icon": "Spell_Holy_SearingLight",
+  "rank": null,
+  "worn": false,
+  "lines": "向22码内的随机敌人发射3枚飞弹，每枚造成311点神圣伤害。附近敌人很少时，多枚飞弹可能命中同一个敌人。 每次命中为你恢复20点生命值。\n+34% 伤害",
+  "title": "新法术：神圣震击"
+ },
+ {
+  "name": "驱邪术",
+  "kind": "new",
+  "icon": "Spell_Holy_Excorcism_02",
+  "rank": null,
+  "worn": false,
+  "lines": "对25码内的最近的2个敌人各造成452点神圣伤害。优先攻击首领和精英。\n+18% 伤害",
+  "title": "新法术：驱邪术"
+ },
+ {
+  "name": "魔爆术",
+  "kind": "new",
+  "icon": "Spell_Nature_WispSplode",
+  "rank": null,
+  "worn": false,
+  "lines": "对你9码内的所有敌人造成21点奥术伤害。\n+18% 伤害",
+  "title": "新法术：魔爆术"
+ },
+ {
+  "name": "吞噬者之戒",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_AhnQiraj_05",
+  "rank": null,
+  "worn": false,
+  "lines": "每秒+2.2生命值",
+  "title": "吞噬者之戒"
+ },
+ {
+  "name": "屠龙大师之戒",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_41",
+  "rank": null,
+  "worn": false,
+  "lines": "+11% 暴击几率",
+  "title": "屠龙大师之戒"
+ },
+ {
+  "name": "沉重的黑铁戒指",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_14",
+  "rank": null,
+  "worn": false,
+  "lines": "+25% 最大生命值",
+  "title": "沉重的黑铁戒指"
+ },
+ {
+  "name": "法术能量戒指",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_38",
+  "rank": null,
+  "worn": false,
+  "lines": "+21% 效果范围",
+  "title": "法术能量戒指"
+ },
+ {
+  "name": "诅咒者的徽记",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_51Naxxramas",
+  "rank": null,
+  "worn": false,
+  "lines": "你的持续伤害法术跳动速度加快36%",
+  "title": "诅咒者的徽记"
+ },
+ {
+  "name": "迅击戒指",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_07",
+  "rank": null,
+  "worn": true,
+  "lines": "-14% 冷却时间",
+  "title": "迅击戒指"
+ },
+ {
+  "name": "阿尔基姆提罗斯的审判之戒",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_40",
+  "rank": null,
+  "worn": false,
+  "lines": "+7% 伤害减免，+28% 最大生命值",
+  "title": "阿尔基姆提罗斯的审判之戒"
+ },
+ {
+  "name": "阿库里亚之戒",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_15",
+  "rank": null,
+  "worn": false,
+  "lines": "+46% 伤害",
+  "title": "阿库里亚之戒"
+ },
+ {
+  "name": "饮血者指环",
+  "kind": "ring",
+  "icon": "INV_Jewelry_Ring_49Naxxramas",
+  "rank": null,
+  "worn": true,
+  "lines": "你造成的所有伤害的2.1%会治疗你",
+  "title": "饮血者指环"
+ },
+ {
+  "name": "侏儒万能遥控器",
+  "kind": "trinket",
+  "icon": "INV_Misc_PocketWatch_01",
+  "rank": null,
+  "worn": false,
+  "lines": "+94% 拾取范围",
+  "title": "侏儒万能遥控器"
+ },
+ {
+  "name": "大地之击",
+  "kind": "trinket",
+  "icon": "Spell_Nature_AbolishMagic",
+  "rank": null,
+  "worn": false,
+  "lines": "+35% 伤害",
+  "title": "大地之击"
+ },
+ {
+  "name": "天选者印记",
+  "kind": "trinket",
+  "icon": "INV_Jewelry_Talisman_08",
+  "rank": null,
+  "worn": true,
+  "lines": "+22% 幸运",
+  "title": "天选者印记"
+ },
+ {
+  "name": "奥妮克希亚之血护符",
+  "kind": "trinket",
+  "icon": "Spell_Shadow_LifeDrain",
+  "rank": null,
+  "worn": true,
+  "lines": "每次击杀恢复3.0点生命值",
+  "title": "奥妮克希亚之血护符"
+ },
+ {
+  "name": "极效灵魂石",
+  "kind": "trinket",
+  "icon": "INV_Misc_Orb_04",
+  "rank": null,
+  "worn": false,
+  "lines": "+1次以一半生命值复活（最多2次）",
+  "title": "极效灵魂石"
+ },
+ {
+  "name": "棍子上的胡萝卜",
+  "kind": "trinket",
+  "icon": "INV_Misc_Food_54",
+  "rank": null,
+  "worn": true,
+  "lines": "+12% 移动速度",
+  "title": "棍子上的胡萝卜"
+ },
+ {
+  "name": "正义之手",
+  "kind": "trinket",
+  "icon": "INV_Jewelry_Talisman_01",
+  "rank": null,
+  "worn": true,
+  "lines": "9%几率让法术施放两次",
+  "title": "正义之手"
+ },
+ {
+  "name": "生命宝石",
+  "kind": "trinket",
+  "icon": "INV_Misc_Gem_Pearl_05",
+  "rank": null,
+  "worn": true,
+  "lines": "+20% 最大生命值",
+  "title": "生命宝石"
+ },
+ {
+  "name": "短暂能量护符",
+  "kind": "trinket",
+  "icon": "INV_Misc_StoneTablet_11",
+  "rank": null,
+  "worn": false,
+  "lines": "-19% 冷却时间",
+  "title": "短暂能量护符"
+ },
+ {
+  "name": "艾德雷斯皇家徽记",
+  "kind": "trinket",
+  "icon": "INV_Jewelry_Talisman_10",
+  "rank": null,
+  "worn": true,
+  "lines": "+38% 金币",
+  "title": "艾德雷斯皇家徽记"
+ },
+ {
+  "name": "迷斯塔利亚之星",
+  "kind": "trinket",
+  "icon": "INV_Enchant_EssenceMagicLarge",
+  "rank": null,
+  "worn": false,
+  "lines": "+21% 最大生命值，+3.4% 伤害减免",
+  "title": "迷斯塔利亚之星"
+ },
+ {
+  "name": "部落徽记",
+  "kind": "trinket",
+  "icon": "INV_Jewelry_TrinketPVP_02",
+  "rank": null,
+  "worn": false,
+  "lines": "+18% 经验值",
+  "title": "部落徽记"
+ },
+ {
+  "name": "酋长的号角",
+  "kind": "trinket",
+  "icon": "INV_Misc_Horn_01",
+  "rank": null,
+  "worn": true,
+  "lines": "你的增益效果提高41%",
+  "title": "酋长的号角"
+ },
+ {
+  "name": "黑手的宽容",
+  "kind": "trinket",
+  "icon": "INV_Misc_ArmorKit_09",
+  "rank": null,
+  "worn": true,
+  "lines": "+29% 暴击伤害",
+  "title": "黑手的宽容"
+ },
+ {
+  "name": "制裁之锤",
+  "kind": "upgrade",
+  "icon": "Spell_Holy_SealOfMight",
+  "rank": 2,
+  "worn": false,
+  "lines": "+18% 伤害",
+  "title": "制裁之锤 等级2"
+ },
+ {
+  "name": "吸取生命",
+  "kind": "upgrade",
+  "icon": "Spell_Shadow_LifeDrain02",
+  "rank": 2,
+  "worn": false,
+  "lines": "-7% 冷却时间",
+  "title": "吸取生命 等级2"
+ },
+ {
+  "name": "奉献",
+  "kind": "upgrade",
+  "icon": "Spell_Holy_InnerFire",
+  "rank": 2,
+  "worn": false,
+  "lines": "-7% 冷却时间",
+  "title": "奉献 等级2"
+ },
+ {
+  "name": "奥术飞弹",
+  "kind": "upgrade",
+  "icon": "Spell_Nature_StarFall",
+  "rank": 2,
+  "worn": false,
+  "lines": "-7% 冷却时间",
+  "title": "奥术飞弹 等级2"
+ },
+ {
+  "name": "审判",
+  "kind": "upgrade",
+  "icon": "Spell_Holy_RighteousFury",
+  "rank": 2,
+  "worn": false,
+  "lines": "+25% 伤害",
+  "title": "审判 等级2"
+ },
+ {
+  "name": "寒冰护体",
+  "kind": "upgrade",
+  "icon": "Spell_Ice_Lament",
+  "rank": 2,
+  "worn": false,
+  "lines": "+16% 吸收",
+  "title": "寒冰护体 等级2"
+ },
+ {
+  "name": "愤怒之锤",
+  "kind": "upgrade",
+  "icon": "Ability_ThunderClap",
+  "rank": 2,
+  "worn": false,
+  "lines": "+18% 伤害",
+  "title": "愤怒之锤 等级2"
+ },
+ {
+  "name": "暗影箭",
+  "kind": "upgrade",
+  "icon": "Spell_Shadow_ShadowBolt",
+  "rank": 2,
+  "worn": false,
+  "lines": "-7% 冷却时间",
+  "title": "暗影箭 等级2"
+ },
+ {
+  "name": "死亡缠绕",
+  "kind": "upgrade",
+  "icon": "Spell_Shadow_DeathCoil",
+  "rank": 2,
+  "worn": false,
+  "lines": "+1 个目标",
+  "title": "死亡缠绕 等级2"
+ },
+ {
+  "name": "火焰冲击",
+  "kind": "upgrade",
+  "icon": "Spell_Fire_Fireball",
+  "rank": 2,
+  "worn": false,
+  "lines": "-10% 冷却时间",
+  "title": "火焰冲击 等级2"
+ },
+ {
+  "name": "火球术",
+  "kind": "upgrade",
+  "icon": "Spell_Fire_FlameBolt",
+  "rank": 2,
+  "worn": false,
+  "lines": "+18% 伤害",
+  "title": "火球术 等级2"
+ },
+ {
+  "name": "灵魂之火",
+  "kind": "upgrade",
+  "icon": "Spell_Fire_Fireball02",
+  "rank": 2,
+  "worn": false,
+  "lines": "-7% 冷却时间",
+  "title": "灵魂之火 等级2"
+ },
+ {
+  "name": "炎爆术",
+  "kind": "upgrade",
+  "icon": "Spell_Fire_Fireball02",
+  "rank": 2,
+  "worn": false,
+  "lines": "+1 个目标",
+  "title": "炎爆术 等级2"
+ },
+ {
+  "name": "痛苦诅咒",
+  "kind": "upgrade",
+  "icon": "Spell_Shadow_CurseOfSargeras",
+  "rank": 2,
+  "worn": false,
+  "lines": "+1 个目标",
+  "title": "痛苦诅咒 等级2"
+ },
+ {
+  "name": "神圣震击",
+  "kind": "upgrade",
+  "icon": "Spell_Holy_SearingLight",
+  "rank": 2,
+  "worn": false,
+  "lines": "+18% 伤害",
+  "title": "神圣震击 等级2"
+ },
+ {
+  "name": "腐蚀术",
+  "kind": "upgrade",
+  "icon": "Spell_Shadow_AbominationExplosion",
+  "rank": 2,
+  "worn": false,
+  "lines": "+15% 持续时间",
+  "title": "腐蚀术 等级2"
+ },
+ {
+  "name": "驱邪术",
+  "kind": "upgrade",
+  "icon": "Spell_Holy_Excorcism_02",
+  "rank": 2,
+  "worn": false,
+  "lines": "+18% 伤害",
+  "title": "驱邪术 等级2"
+ },
+ {
+  "name": "魔爆术",
+  "kind": "upgrade",
+  "icon": "Spell_Nature_WispSplode",
+  "rank": 2,
+  "worn": false,
+  "lines": "-10% 冷却时间",
+  "title": "魔爆术 等级2"
+ }
+]
