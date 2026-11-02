@@ -11,6 +11,8 @@ tk._refresh_<key>() 就能拿到更新时机。
 import os
 import subprocess
 
+import contextlib
+
 import dearpygui.dearpygui as dpg
 
 import azs_config as C
@@ -39,14 +41,66 @@ def hint(text, color=None, wrap=820):
 
 
 def card(title, value_tag, width=206):
-    """状态卡片：小标题 + 大号状态值。"""
+    """状态卡片：小标题 + 大号状态值。width 传 -1 表示撑满所在的表格单元格。"""
     with dpg.child_window(width=width, height=CARD_H, border=True,
-                          no_scrollbar=True):
-        dpg.add_spacer(height=10)
+                          no_scrollbar=True) as cw:
+        dpg.bind_item_theme(cw, T.card_theme())
+        dpg.add_spacer(height=12)
         dpg.add_text("  " + title, color=T.C_TEXT_DIM)
         v = dpg.add_text("  —", tag=value_tag)
         T.set_font(v, "bold")
     return v
+
+
+def card_row(items, gap=6):
+    """一排等宽状态卡，宽度按窗口自动平分。
+
+    以前是固定 206px × 4：窗口一窄，第四张卡直接被裁掉半截，
+    窗口一宽右边又空一大片。改成分栏表格，永远刚好铺满。
+    """
+    with dpg.child_window(width=-1, height=CARD_H + 8, border=False,
+                          no_scrollbar=True) as wrap:
+        _pad_theme(wrap)
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchSame,
+                       width=-1, pad_outerX=False,
+                       borders_innerV=False, borders_innerH=False,
+                       borders_outerH=False, borders_outerV=False,
+                       scrollX=False, scrollY=False) as tb:
+            dpg.bind_item_theme(tb, _cell_theme(gap))
+            for _ in items:
+                dpg.add_table_column()
+            with dpg.table_row():
+                for title, tag in items:
+                    with dpg.table_cell():
+                        card(title, tag, width=-1)
+
+
+_pad_theme_cache = None
+
+
+def _pad_theme(container):
+    """给容器加和页面一致的左右留白。"""
+    global _pad_theme_cache
+    if _pad_theme_cache is None:
+        with dpg.theme() as t:
+            with dpg.theme_component(dpg.mvChildWindow):
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, PAD, 0)
+                dpg.add_theme_style(dpg.mvStyleVar_ChildBorderSize, 0)
+        _pad_theme_cache = t
+    dpg.bind_item_theme(container, _pad_theme_cache)
+
+
+_cell_theme_cache = {}
+
+
+def _cell_theme(gap=6):
+    """表格单元格间距：卡片之间靠 cell padding 分开，不用在 cell 里塞 spacer。"""
+    if gap not in _cell_theme_cache:
+        with dpg.theme() as t:
+            with dpg.theme_component(dpg.mvTable):
+                dpg.add_theme_style(dpg.mvStyleVar_CellPadding, gap, 0)
+        _cell_theme_cache[gap] = t
+    return _cell_theme_cache[gap]
 
 
 def kv_row(label, value_tag, color=None):
@@ -66,65 +120,203 @@ def build_home(tk, parent):
     tag = "page_home"
     with dpg.child_window(tag=tag, parent=parent, border=False,
                           width=-1, show=False):
-        dpg.add_spacer(height=10)
+        dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
             pad()
             with dpg.group():
-                big_title("开始游戏",
-                          "从工具箱点「开始」才会带上调试参数；直接从桌面开游戏，"
-                          "插件读不到选卡数据。")
-        dpg.add_spacer(height=18)
+                big_title("开始游戏", "")
+                dpg.add_spacer(height=2)
+                hint("从工具箱点「开始」才会带上调试参数；直接开游戏插件读不到数据。",
+                     wrap=760)
+        dpg.add_spacer(height=6)
 
-        with dpg.group(horizontal=True):
-            pad()
-            card("游戏", "home_game")
-            dpg.add_spacer(width=12)
-            card("数据大脑", "home_brain")
-            dpg.add_spacer(width=12)
-            card("悬浮层", "home_overlay")
-            dpg.add_spacer(width=12)
-            card("当前方案", "home_profile")
-        dpg.add_spacer(height=18)
+        # ---- 卡 1：运行状态（参考图那种「标题 + 列表行」）----
+        with card(178):
+            card_head("运行状态", "工具箱没开时游戏也起不来")
+            rule()
+            _row_table([
+                ("游戏", "home_game", "跟着工具箱一起起停"),
+                ("数据大脑", "home_brain", "读战斗记录、算收益"),
+                ("悬浮层", "home_overlay", "屏幕上的收益徽标"),
+            ])
 
+        dpg.add_spacer(height=12)
+
+        # ---- 卡 2：当前方案 + 操作 ----
+        with card(96):
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=20)
+                b = dpg.add_button(label="   开 始   ", height=42, width=132,
+                                   callback=lambda: tk.action_start())
+                dpg.bind_item_theme(b, T.accent_button_theme())
+                dpg.add_spacer(width=8)
+                dpg.add_button(label="  停止后台  ", height=42,
+                               callback=lambda: tk.action_stop())
+                dpg.add_spacer(width=8)
+                dpg.add_button(label="  重启后台  ", height=42,
+                               callback=lambda: tk.action_restart())
+                dpg.add_spacer(width=8)
+                dpg.add_button(label="  存档修改器  ", height=42,
+                               callback=lambda: tk.open_save_editor())
+            dpg.add_spacer(height=8)
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=22)
+                t = dpg.add_text("当前方案", color=T.C_TEXT_FAINT)
+                T.set_font(t, "tiny")
+                dpg.add_spacer(width=8)
+                v = dpg.add_text("默认方案", tag="home_profile",
+                                 color=T.C_GREEN)
+                T.set_font(v, "small")
+
+        dpg.add_spacer(height=12)
+
+        # ---- 卡 3：运行信息 ----
+        # 运行信息不值得占一整张卡：压成两行灰字贴在底部，
+        # 一屏能装下"状态 + 操作"才是首页该干的事。
+        dpg.add_spacer(height=8)
         with dpg.group(horizontal=True):
-            pad()
-            b = dpg.add_button(label="   开 始   ", height=44,
-                               callback=lambda: tk.action_start())
-            dpg.bind_item_theme(b, T.accent_button_theme())
-            dpg.add_spacer(width=10)
-            dpg.add_button(label="   停 止 后 台   ", height=44,
-                           callback=lambda: tk.action_stop())
-            dpg.add_spacer(width=10)
-            dpg.add_button(label="   重 启 后 台   ", height=44,
-                           callback=lambda: tk.action_restart())
-            dpg.add_spacer(width=10)
-            dpg.add_button(label="   存 档 修 改 器   ", height=44,
-                           callback=lambda: tk.open_save_editor())
+            dpg.add_spacer(width=24)
+            _mini("版本", "home_version")
+            dpg.add_spacer(width=26)
+            _mini("热键", "home_hotkey")
+            dpg.add_spacer(width=26)
+            _mini("技能来源", "home_source")
+            dpg.add_spacer(width=26)
+            _mini("游戏目录", "home_gamepath")
         dpg.add_spacer(height=20)
-
-        with dpg.group(horizontal=True):
-            pad()
-            with dpg.child_window(width=-1, height=250, border=True):
-                dpg.add_spacer(height=12)
-                dpg.add_text("  运行信息")
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    with dpg.group():
-                        kv_row("游戏目录　　", "home_gamepath")
-                        dpg.add_spacer(height=3)
-                        kv_row("悬浮层热键　", "home_hotkey")
-                        dpg.add_spacer(height=3)
-                        kv_row("技能来源　　", "home_source")
-                        dpg.add_spacer(height=3)
-                        kv_row("工具箱版本　", "home_version")
-                dpg.add_spacer(height=10)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    hint("提示：改完设置不用重启游戏；只有换了 brain.py / overlay.ps1 才需要点「重启后台」。",
-                         wrap=760)
-                dpg.add_spacer(height=10)
     return tag
+
+
+# ------------------------------------------------- 卡片骨架（照参考图那套）--
+@contextlib.contextmanager
+def card(height=180, pad_x=22, scroll=False):
+    """一张大圆角黑卡，左右各留 pad_x 白。
+
+    用表格做留白：child_window 的 WindowPadding 在 DPG 2.3 里对子容器不生效，
+    只有表格的 CellPadding 是可靠的。
+
+    pad_x 同时作为卡片内部内容的左右内缩 —— 卡片里就别再塞
+    `group(horizontal) + spacer(width=22)` 了，那样每行都会额外吃高度。
+
+    scroll=True：内容比卡片高的页面（参数多、窗口又小）开竖向滚动，
+    免得底下几行被直接截掉、用户永远看不到。
+    """
+    with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                   width=-1, pad_outerX=True,
+                   borders_innerV=False, borders_innerH=False,
+                   borders_outerH=False, borders_outerV=False,
+                   scrollX=False, scrollY=False) as tb:
+        dpg.bind_item_theme(tb, _cell_theme(pad_x))
+        dpg.add_table_column(init_width_or_weight=1.0)
+        with dpg.table_row():
+            with dpg.table_cell():
+                with dpg.child_window(width=-1, height=height, border=True,
+                                      no_scrollbar=not scroll) as cw:
+                    dpg.bind_item_theme(cw, T.surface_theme())
+                    yield cw
+
+
+def card_head(title, sub=""):
+    """卡片标题：左上 19px 粗体，右边跟一句灰色小字。"""
+    dpg.add_spacer(height=11)
+    with dpg.group(horizontal=True):
+        dpg.add_spacer(width=20)
+        t = dpg.add_text(title)
+        T.set_font(t, "bold")
+        if sub:
+            dpg.add_spacer(width=12)
+            h = dpg.add_text(sub, color=T.C_TEXT_FAINT)
+            T.set_font(h, "tiny")
+    dpg.add_spacer(height=7)
+
+
+def rule():
+    """卡片内的细分割线，两端各缩进 20px。"""
+    with dpg.group(horizontal=True):
+        dpg.add_spacer(width=20)
+        with dpg.group():
+            dpg.add_separator()
+    dpg.add_spacer(height=1)
+
+
+def _slabel(text, w=76):
+    """滑杆左边那个固定宽度的标签，让几条滑杆能对齐。"""
+    t = dpg.add_text(text, color=T.C_TEXT_DIM)
+    T.set_font(t, "small")
+    dpg.add_spacer(width=1, tag="sl_" + text)
+    return t
+
+
+def _mini(label, value_tag):
+    """一行极简信息：灰标签 + 白值，用在页面底部。"""
+    t = dpg.add_text(label, color=T.C_TEXT_FAINT)
+    T.set_font(t, "tiny")
+    dpg.add_spacer(width=6)
+    v = dpg.add_text("—", tag=value_tag)
+    T.set_font(v, "tiny")
+    return v
+
+
+def _row_table(rows, gap=20, value_font="small"):
+    """一组「左标题 / 中间说明 / 右值」的列表行。
+
+    说明不另起一行 —— 另起一行每行就要 48px，三行就把卡片顶穿了。
+    压成一行后每行 31px，正好一屏放得下。
+
+    rows: [(label, value_tag, note), ...]
+    """
+    with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                   width=-1, pad_outerX=True,
+                   borders_innerV=False, borders_innerH=False,
+                   borders_outerH=False, borders_outerV=False,
+                   scrollX=False, scrollY=False) as tb:
+        dpg.bind_item_theme(tb, _cell_theme(gap))
+        dpg.add_table_column(width_fixed=True)
+        dpg.add_table_column(init_width_or_weight=1.0)
+        dpg.add_table_column(width_fixed=True)
+        for label, value_tag, note in rows:
+            with dpg.table_row():
+                with dpg.table_cell():
+                    t = dpg.add_text(label)
+                    T.set_font(t, "base")
+                with dpg.table_cell():
+                    if note:
+                        h = dpg.add_text(note, color=T.C_TEXT_FAINT)
+                        T.set_font(h, "tiny")
+                with dpg.table_cell():
+                    v = dpg.add_text("—", tag=value_tag, color=T.C_TEXT_DIM)
+                    T.set_font(v, value_font)
+    dpg.add_spacer(height=4)
+
+
+def _kv_table(pairs, gap=20):
+    """两列 key-value，一行放两组，省高度。"""
+    with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                   width=-1, pad_outerX=True,
+                   borders_innerV=False, borders_innerH=False,
+                   borders_outerH=False, borders_outerV=False,
+                   scrollX=False, scrollY=False) as tb:
+        dpg.bind_item_theme(tb, _cell_theme(gap))
+        for _ in range(4):
+            dpg.add_table_column(init_width_or_weight=0.42)
+        half = (len(pairs) + 1) // 2
+        for i in range(half):
+            with dpg.table_row():
+                for j in (i, i + half):
+                    if j < len(pairs):
+                        label, tag = pairs[j]
+                        with dpg.table_cell():
+                            t = dpg.add_text(label, color=T.C_TEXT_FAINT)
+                            T.set_font(t, "tiny")
+                        with dpg.table_cell():
+                            v = dpg.add_text("—", tag=tag)
+                            T.set_font(v, "small")
+                    else:
+                        with dpg.table_cell():
+                            dpg.add_text("")
+                        with dpg.table_cell():
+                            dpg.add_text("")
+    dpg.add_spacer(height=2)
 
 
 # ===================================================================== 悬浮层
@@ -144,93 +336,120 @@ def build_overlay(tk, parent):
             dpg.add_checkbox(label="启用悬浮层", tag="ov_enabled",
                              default_value=True,
                              callback=cb_overlay_toggle, user_data=tk)
-            dpg.add_spacer(width=20)
+            dpg.add_spacer(width=18)
             b = dpg.add_button(label="   立 即 显 示 / 隐 藏   ", height=34,
                                callback=cb_overlay_flash, user_data=tk)
             dpg.bind_item_theme(b, T.accent_button_theme())
-            dpg.add_spacer(width=14)
+            dpg.add_spacer(width=12)
             dpg.add_text("", tag="ov_visible_state", color=T.C_TEXT_DIM)
-            dpg.add_spacer(width=22)
-            dpg.add_checkbox(label="选卡时显示流派提示", tag="ov_panel",
+            dpg.add_spacer(width=24)
+            dpg.add_checkbox(label="选卡时显示预设面板", tag="ov_panel",
                              default_value=True,
                              callback=cb_overlay_panel, user_data=tk)
-            dpg.add_spacer(width=16)
+            dpg.add_spacer(width=14)
             dpg.add_checkbox(label="显示伤害统计框", tag="ov_dps",
                              default_value=True,
                              callback=cb_overlay_dps, user_data=tk)
-        dpg.add_spacer(height=16)
+        dpg.add_spacer(height=14)
 
-        with dpg.group(horizontal=True):
-            pad()
-            with dpg.child_window(width=440, height=452, border=True):
-                dpg.add_spacer(height=14)
-                dpg.add_text("  外观（拖完立即生效）")
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_slider_float(label="字号倍率", tag="ov_font", width=230,
-                                         default_value=1.0, min_value=0.7,
-                                         max_value=2.0, format="%.2f",
-                                         callback=cb_overlay_live, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_slider_int(label="徽标宽度", tag="ov_width", width=230,
-                                       default_value=270, min_value=140,
-                                       max_value=560,
-                                       callback=cb_overlay_live, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_slider_float(label="纵向位置", tag="ov_y", width=230,
-                                         default_value=0.222, min_value=0.05,
-                                         max_value=0.85, format="%.3f",
-                                         callback=cb_overlay_live, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_slider_float(label="卡牌间距", tag="ov_step", width=230,
-                                         default_value=0.1958, min_value=0.10,
-                                         max_value=0.40, format="%.4f",
-                                         callback=cb_overlay_live, user_data=tk)
-                dpg.add_spacer(height=10)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    hint("纵向位置决定徽标在卡牌上方的落点；卡牌间距要和游戏分辨率匹配，"
-                         "错位时先把间距调回 0.1958 再微调。", wrap=390)
-                dpg.add_spacer(height=10)
-
-            dpg.add_spacer(width=16)
-
-            with dpg.child_window(width=-1, height=452, border=True):
-                dpg.add_spacer(height=14)
-                dpg.add_text("  游戏内热键")
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_combo(SUGGESTED_COMBOS, label="显示/隐藏悬浮层",
-                                  tag="ov_hotkey", width=160,
-                                  callback=cb_hotkey_change, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_combo(SUGGESTED_COMBOS, label="呼出工具箱",
-                                  tag="ov_hotkey_panel", width=160,
-                                  callback=cb_hotkey_change, user_data=tk)
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_checkbox(label="启用热键", tag="ov_hotkey_on",
-                                     default_value=True,
-                                     callback=cb_hotkey_change, user_data=tk)
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_text("", tag="ov_hotkey_msg", color=T.C_TEXT_FAINT,
-                                 wrap=420)
-                dpg.add_spacer(height=10)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    hint("游戏全屏时也有效，只要工具箱还开着。\n"
-                         "提示「已被占用」说明别的软件占了同一个键，换一个再试。",
-                         wrap=420)
+        # 左右分栏必须走表格。放在 group(horizontal=True) 里的话，
+        # child_window(width=-1) 会按整个父宽算，右边那栏直接顶到窗口外。
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                       width=-1, pad_outerX=True,
+                       borders_innerV=False, borders_innerH=False,
+                       borders_outerH=False, borders_outerV=False,
+                       scrollX=False, scrollY=False) as tb:
+            dpg.bind_item_theme(tb, _cell_theme(20))
+            dpg.add_table_column(init_width_or_weight=1.14)
+            dpg.add_table_column(init_width_or_weight=1.0)
+            with dpg.table_row():
+                with dpg.table_cell():
+                    _overlay_left(tk)
+                with dpg.table_cell():
+                    _overlay_right(tk)
     return tag
+
+
+def _overlay_left(tk):
+    """外观：四个滑杆 + 一行说明。"""
+    with dpg.child_window(width=-1, height=300, border=True,
+                          no_scrollbar=True):
+        dpg.add_spacer(height=14)
+        dpg.add_text("  外观（拖完立即生效）")
+        T.set_font(dpg.last_item(), "bold")
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            _slabel("字号倍率")
+            dpg.add_slider_float(tag="ov_font", width=210,
+                                 default_value=1.0, min_value=0.7,
+                                 max_value=2.0, format="%.2f",
+                                 callback=cb_overlay_live, user_data=tk)
+            dpg.bind_item_theme("ov_font", T.slider_theme())
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            _slabel("徽标宽度")
+            dpg.add_slider_int(tag="ov_width", width=210,
+                               default_value=270, min_value=140,
+                               max_value=560,
+                               callback=cb_overlay_live, user_data=tk)
+            dpg.bind_item_theme("ov_width", T.slider_theme())
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            _slabel("纵向位置")
+            dpg.add_slider_float(tag="ov_y", width=210,
+                                 default_value=0.222, min_value=0.05,
+                                 max_value=0.85, format="%.3f",
+                                 callback=cb_overlay_live, user_data=tk)
+            dpg.bind_item_theme("ov_y", T.slider_theme())
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            _slabel("卡牌间距")
+            dpg.add_slider_float(tag="ov_step", width=210,
+                                 default_value=0.1958, min_value=0.10,
+                                 max_value=0.40, format="%.4f",
+                                 callback=cb_overlay_live, user_data=tk)
+            dpg.bind_item_theme("ov_step", T.slider_theme())
+        dpg.add_spacer(height=10)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            hint("纵向位置决定徽标在卡牌上方的落点；卡牌间距要和游戏分辨率匹配，"
+                 "错位时先把间距调回 0.1958 再微调。", wrap=330)
+
+
+def _overlay_right(tk):
+    """游戏内热键：两个下拉 + 开关 + 说明。"""
+    with dpg.child_window(width=-1, height=300, border=True,
+                          no_scrollbar=True):
+        dpg.add_spacer(height=10)
+        dpg.add_text("  游戏内热键")
+        T.set_font(dpg.last_item(), "bold")
+        dpg.add_spacer(height=6)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_combo(SUGGESTED_COMBOS, label="显示/隐藏悬浮层",
+                          tag="ov_hotkey", width=150,
+                          callback=cb_hotkey_change, user_data=tk)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_combo(SUGGESTED_COMBOS, label="呼出工具箱",
+                          tag="ov_hotkey_panel", width=150,
+                          callback=cb_hotkey_change, user_data=tk)
+        dpg.add_spacer(height=6)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_checkbox(label="启用热键", tag="ov_hotkey_on",
+                             default_value=True,
+                             callback=cb_hotkey_change, user_data=tk)
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_text("", tag="ov_hotkey_msg", color=T.C_TEXT_FAINT,
+                         wrap=260)
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            hint("全屏也有效；「已被占用」说明键被占了。", wrap=260)
 
 
 # ===================================================================== 技能数值
@@ -243,127 +462,118 @@ def build_spells(tk, parent):
 
 # ===================================================================== 方案
 LEFT_W = 350
-PANEL_H = 468
+PANEL_H = 424
 
 
 def build_profile(tk, parent):
     tag = "page_profile"
     with dpg.child_window(tag=tag, parent=parent, border=False,
                           width=-1, show=False):
-        dpg.add_spacer(height=10)
+        dpg.add_spacer(height=6)
         with dpg.group(horizontal=True):
             pad()
             with dpg.group():
                 big_title("方案与天赋",
-                          "插件读不到游戏里的天赋树，在这里告诉它你点了什么，收益才算得准。")
-        dpg.add_spacer(height=12)
+                          "插件读不到天赋树，在这里告诉它你点了什么。")
+        dpg.add_spacer(height=6)
 
+        # 两栏走表格，理由同悬浮层页：group(horizontal) 里的 width=-1
+        # 会按整页宽算，右栏直接被顶到窗口外面。
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                       width=-1, pad_outerX=True,
+                       borders_innerV=False, borders_innerH=False,
+                       borders_outerH=False, borders_outerV=False,
+                       scrollX=False, scrollY=False) as _tb:
+            dpg.bind_item_theme(_tb, _cell_theme(20))
+            dpg.add_table_column(init_width_or_weight=0.78)
+            dpg.add_table_column(init_width_or_weight=1.0)
+            with dpg.table_row():
+                with dpg.table_cell():
+                    _profile_left(tk)
+                with dpg.table_cell():
+                    _profile_right(tk)
+        _profile_actions(tk)
+    return tag
+
+
+def _profile_left(tk):
+    # ---------------- 左：方案管理 ----------------
+    with card(PANEL_H):
+        card_head("我的方案", "一个方案 = 一套职业+天赋+参数")
+        dpg.add_spacer(height=4)
+        rule()
         with dpg.group(horizontal=True):
-            pad()
+            dpg.add_combo([], tag="pf_list", width=-1,
+                          callback=cb_profile_pick, user_data=tk)
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label=" 新建 ", callback=cb_profile_new,
+                           user_data=tk)
+            dpg.add_button(label=" 复制 ", callback=cb_profile_dup,
+                           user_data=tk)
+            dpg.add_button(label=" 改名 ", callback=cb_profile_rename,
+                           user_data=tk)
+            dpg.add_button(label=" 删除 ", callback=cb_profile_del,
+                           user_data=tk)
+        dpg.add_spacer(height=12)
+        lb = dpg.add_text("方案名字", color=T.C_TEXT_DIM)
+        T.set_font(lb, "small")
+        dpg.add_spacer(height=4)
+        dpg.add_input_text(tag="pf_name", width=-1,
+                           hint="在上面输入新名字，再点新建/改名")
+        dpg.add_spacer(height=6)
+        dpg.add_text("", tag="pf_msg", color=T.C_TEXT_FAINT, wrap=-1)
+        dpg.add_spacer(height=12)
+        rule()
+        hint("换职业就新建一个方案，别在同一个里来回改。", wrap=-1)
 
-            # ---------------- 左：方案管理 ----------------
-            with dpg.child_window(width=LEFT_W, height=PANEL_H, border=True):
-                dpg.add_spacer(height=12)
-                dpg.add_text("  我的方案")
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    dpg.add_combo([], tag="pf_list", width=LEFT_W - 42,
-                                  callback=cb_profile_pick, user_data=tk)
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    dpg.add_button(label=" 新建 ", callback=cb_profile_new,
-                                   user_data=tk)
-                    dpg.add_button(label=" 复制 ", callback=cb_profile_dup,
-                                   user_data=tk)
-                    dpg.add_button(label=" 改名 ", callback=cb_profile_rename,
-                                   user_data=tk)
-                    dpg.add_button(label=" 删除 ", callback=cb_profile_del,
-                                   user_data=tk)
-                dpg.add_spacer(height=12)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    dpg.add_text("方案名字", color=T.C_TEXT_DIM)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    dpg.add_input_text(tag="pf_name", width=LEFT_W - 42,
-                                       hint="在上面输入新名字，再点新建/改名")
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    dpg.add_text("", tag="pf_msg", color=T.C_TEXT_FAINT,
-                                 wrap=LEFT_W - 42)
-                dpg.add_spacer(height=12)
-                dpg.add_separator()
-                dpg.add_spacer(height=10)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    with dpg.group():
-                        hint("一个方案 = 一套「职业 + 天赋 + 参数」。", wrap=LEFT_W - 40)
-                        dpg.add_spacer(height=4)
-                        hint("换职业玩就新建一个，互不影响；", wrap=LEFT_W - 40)
-                        dpg.add_spacer(height=2)
-                        hint("改哪一项都是立刻保存的。", wrap=LEFT_W - 40)
 
-            dpg.add_spacer(width=14)
+def _profile_right(tk):
+    # ---------------- 右：方案内容 ----------------
+    with card(424):
+        card_head("方案内容", "改一项自动保存")
+        dpg.add_spacer(height=2)
+        rule()
+        with dpg.group(horizontal=True):
+            lb = dpg.add_text("职业", color=T.C_TEXT_DIM)
+            T.set_font(lb, "small")
+            dpg.add_spacer(width=8)
+            dpg.add_combo([c[1] for c in C.CLASSES], tag="pf_class",
+                          width=170, callback=cb_profile_field,
+                          user_data=tk)
+        dpg.add_spacer(height=8)
 
-            # ---------------- 右：方案内容 ----------------
-            with dpg.child_window(width=-1, height=PANEL_H, border=True):
-                dpg.add_spacer(height=12)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=14)
-                    dpg.add_text("职业", color=T.C_TEXT_DIM)
-                    dpg.add_spacer(width=8)
-                    dpg.add_combo([c[1] for c in C.CLASSES], tag="pf_class",
-                                  width=170, callback=cb_profile_field,
-                                  user_data=tk)
-                dpg.add_spacer(height=10)
-                dpg.add_separator()
-                dpg.add_spacer(height=8)
+        lb2 = dpg.add_text("天赋开关", color=T.C_TEXT_DIM)
+        T.set_font(lb2, "tiny")
+        dpg.add_spacer(height=2)
+        dpg.add_checkbox(label="吞噬魔法（术士宠物 · DoT 持续卡才有收益）",
+                         tag="pf_t_consume_magic",
+                         callback=cb_profile_field, user_data=tk)
+        dpg.add_checkbox(label="回声连锁（奥法终局 · 按 1+E+E²+E³ 算）",
+                         tag="pf_t_echo_cascade",
+                         callback=cb_profile_field, user_data=tk)
 
-                dpg.add_text("  天赋开关（点了才打开）", color=T.C_TEXT_DIM)
-                dpg.add_spacer(height=4)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_checkbox(label="吞噬魔法（术士宠物）",
-                                     tag="pf_t_consume_magic",
-                                     callback=cb_profile_field, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=38)
-                    hint("开启后，DoT 持续时间卡才有收益。", wrap=520)
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_checkbox(label="回声连锁（奥法终局）",
-                                     tag="pf_t_echo_cascade",
-                                     callback=cb_profile_field, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=38)
-                    hint("开启后，回声卡的收益按 1+E+E²+E³ 计算。", wrap=520)
+        dpg.add_spacer(height=8)
+        rule()
+        lb3 = dpg.add_text("收益参数", color=T.C_TEXT_DIM)
+        T.set_font(lb3, "tiny")
+        dpg.add_spacer(height=4)
+        with dpg.group(horizontal=True):
+            dpg.add_text("怪能活多久", color=T.C_TEXT_DIM)
+            dpg.add_slider_float(tag="pf_life", width=170,
+                                 min_value=0.5, max_value=20.0,
+                                 format="%.1f 秒",
+                                 callback=cb_profile_field, user_data=tk)
+        with dpg.group(horizontal=True):
+            dpg.add_text("吞噬间隔", color=T.C_TEXT_DIM)
+            dpg.add_input_float(tag="pf_consume", width=80,
+                                format="%.1f", step=0,
+                                callback=cb_profile_field, user_data=tk)
 
-                dpg.add_spacer(height=10)
-                dpg.add_separator()
-                dpg.add_spacer(height=8)
-                dpg.add_text("  收益参数", color=T.C_TEXT_DIM)
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=16)
-                    dpg.add_text("怪能活多久", color=T.C_TEXT_DIM)
-                    dpg.add_slider_float(tag="pf_life", width=190,
-                                         min_value=0.5, max_value=20.0,
-                                         format="%.1f 秒",
-                                         callback=cb_profile_field, user_data=tk)
-                    dpg.add_spacer(width=10)
-                    dpg.add_text("吞噬触发间隔", color=T.C_TEXT_DIM)
-                    dpg.add_input_float(tag="pf_consume", width=80,
-                                        format="%.1f", step=0,
-                                        callback=cb_profile_field, user_data=tk)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=38)
-                    hint("怪活不到 DoT 跳完时持续时间卡会打折；调大就更值钱。",
-                         wrap=520)
-        dpg.add_spacer(height=10)
+
+
+def _profile_actions(tk):
+        dpg.add_spacer(height=8)
         with dpg.group(horizontal=True):
             pad()
             b = dpg.add_button(label="   保 存 并 应 用 到 后 台   ", height=36,
@@ -372,7 +582,6 @@ def build_profile(tk, parent):
             dpg.add_spacer(width=12)
             dpg.add_text("改任何一项都会自动保存；点这个按钮会顺带重启数据大脑。",
                          color=T.C_TEXT_FAINT)
-    return tag
 
 
 # ===================================================================== 更新
@@ -395,50 +604,87 @@ def build_settings(tk, parent):
                 big_title("设置", "游戏位置、启动行为、更新通道。")
         dpg.add_spacer(height=16)
 
+        # 上下堆两张卡在 640 高的默认窗口里永远差几十像素：卡够高内容才放得下，
+        # 按钮就被切；卡压矮，内容又被切。改成左右并排，一次省掉 130px。
+        # 左右留白不能用 child_window 的 WindowPadding 做 —— DPG 2.3 里
+        # 这个 style 对 child_window 不生效（首页卡片一直是贴着边 6px 的原因）。
+        # 改由表格自己的 pad_outerX 负责：左右各留一个 CellPadding。
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                       width=-1, pad_outerX=True,
+                       borders_innerV=False, borders_innerH=False,
+                       borders_outerH=False, borders_outerV=False,
+                       scrollX=False, scrollY=False) as tb:
+            dpg.bind_item_theme(tb, _cell_theme(20))
+            dpg.add_table_column(init_width_or_weight=1.0)
+            dpg.add_table_column(init_width_or_weight=0.92)
+            with dpg.table_row():
+                with dpg.table_cell():
+                    _settings_game(tk)
+                with dpg.table_cell():
+                    _settings_update(tk)
+
+        dpg.add_spacer(height=12)
         with dpg.group(horizontal=True):
             pad()
-            with dpg.child_window(width=-1, height=430, border=True):
-                dpg.add_spacer(height=14)
-                dpg.add_text("  游戏位置")
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=18)
-                    dpg.add_input_text(tag="set_gamedir", width=600, readonly=True)
-                    dpg.add_button(label="   选择…   ", callback=cb_pick_game,
-                                   user_data=tk)
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=18)
-                    dpg.add_checkbox(label="点「开始」时顺带启动游戏",
-                                     tag="set_autolaunch", default_value=True,
-                                     callback=cb_setting_change, user_data=tk)
-                dpg.add_spacer(height=18)
-                dpg.add_text("  更新")
-                dpg.add_spacer(height=6)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=18)
-                    dpg.add_checkbox(label="启动时自动检查新版本",
-                                     tag="set_autoupdate", default_value=True,
-                                     callback=cb_setting_change, user_data=tk)
-                dpg.add_spacer(height=8)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=18)
-                    dpg.add_text("更新地址", color=T.C_TEXT_DIM)
-                    dpg.add_input_text(tag="set_manifest", width=470,
-                                       hint="留空 = 只能手动导入更新包")
-                dpg.add_spacer(height=18)
-                with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=18)
-                    b = dpg.add_button(label="   保 存 设 置   ", height=36,
-                                       callback=cb_save_settings, user_data=tk)
-                    dpg.bind_item_theme(b, T.accent_button_theme())
-                    dpg.add_spacer(width=10)
-                    dpg.add_button(label="   打开插件文件夹   ",
-                                   callback=cb_open_folder, user_data=tk)
-                    dpg.add_spacer(width=10)
-                    dpg.add_button(label="   打开日志文件夹   ",
-                                   callback=cb_open_logs, user_data=tk)
+            b = dpg.add_button(label="   保 存 设 置   ", height=36,
+                               callback=cb_save_settings, user_data=tk)
+            dpg.bind_item_theme(b, T.accent_button_theme())
+            dpg.add_spacer(width=10)
+            dpg.add_button(label="   打开插件文件夹   ",
+                           callback=cb_open_folder, user_data=tk)
+            dpg.add_spacer(width=10)
+            dpg.add_button(label="   打开日志文件夹   ",
+                           callback=cb_open_logs, user_data=tk)
     return tag
+
+
+def _settings_game(tk):
+    with dpg.child_window(width=-1, height=226, border=True,
+                          no_scrollbar=True):
+        dpg.add_spacer(height=12)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_text("游戏位置")
+            T.set_font(dpg.last_item(), "bold")
+        dpg.add_spacer(height=10)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_input_text(tag="set_gamedir", width=250, readonly=True)
+            dpg.add_spacer(width=8)
+            dpg.add_button(label="  选择…  ", height=30, callback=cb_pick_game,
+                           user_data=tk)
+            dpg.add_spacer(width=2)
+        dpg.add_spacer(height=12)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_checkbox(label="点「开始」时顺带启动游戏",
+                             tag="set_autolaunch", default_value=True,
+                             callback=cb_setting_change, user_data=tk)
+
+
+def _settings_update(tk):
+    with dpg.child_window(width=-1, height=226, border=True,
+                          no_scrollbar=True):
+        dpg.add_spacer(height=12)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_text("更新")
+            T.set_font(dpg.last_item(), "bold")
+        dpg.add_spacer(height=10)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_checkbox(label="启动时自动检查新版本",
+                             tag="set_autoupdate", default_value=True,
+                             callback=cb_setting_change, user_data=tk)
+        dpg.add_spacer(height=10)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_text("更新地址", color=T.C_TEXT_DIM)
+            T.set_font(dpg.last_item(), "small")
+        dpg.add_spacer(height=4)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=16)
+            dpg.add_input_text(tag="set_manifest", width=250)
 
 
 # --------------------------------------------------------------------- 回调

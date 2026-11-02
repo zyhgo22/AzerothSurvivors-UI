@@ -61,6 +61,26 @@ $form.BackColor = [System.Drawing.Color]::FromArgb(255, 0, 255)
 $form.TransparencyKey = [System.Drawing.Color]::FromArgb(255, 0, 255)
 $form.Text = "AZS DpsGain"
 
+# ---- 预设命中的外发光 ----
+# 徽标是 Label，自己画不了光晕；光晕画在 form 这一层（比子控件早画，正好在徽标下面）。
+# 四种亮度循环 = 呼吸感，一眼能在三张牌里认出来。
+$script:glowRects = @()
+$script:glowPhase = 0
+$script:glowPens = @()
+foreach ($rgb in @(@(120, 86, 22), @(180, 130, 38), @(240, 196, 96), @(180, 130, 38))) {
+  $script:glowPens += New-Object System.Drawing.Pen (
+    [System.Drawing.Color]::FromArgb(255, $rgb[0], $rgb[1], $rgb[2])), 3
+}
+$form.Add_Paint({
+    param($sender, $e)
+    try {
+      if ($script:glowRects.Count -eq 0) { return }
+      $e.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+      $pen = $script:glowPens[$script:glowPhase % 4]
+      foreach ($r in $script:glowRects) { $e.Graphics.DrawRectangle($pen, $r) }
+    } catch {}
+})
+
 # ---- 让窗口对鼠标完全"隐形" ----
 # 不加这段，这个覆盖全屏的置顶窗口会吃掉所有鼠标事件，游戏里点不到任何东西。
 Add-Type -Namespace AZS -Name Win32 -MemberDefinition @'
@@ -702,6 +722,7 @@ $script:stateStamp = ""        # 文件大小 + 修改时间，用来判断要�
 $script:badgeKey = @("", "", "", "")   # 四个徽标各自的内容指纹
 $script:hintKey = ""
 $script:anyShown = $false      # 当前屏幕上到底有没有东西，避免反复设 Visible
+$script:wasShownFlag = $false  # 上一次是否亮着，用来只在"刚灭"时记日志
 $script:activated = $false     # 只在第一次弹出时把焦点还给游戏
 $script:badgeWidth = [int](270 * $script:fontScale)
 $script:badgeHeight = [int](44 * $script:fontScale)
@@ -711,6 +732,7 @@ $timer = New-Object System.Windows.Forms.Timer
 # 读得比写得还勤，只会白解析同一份数据。
 $timer.Interval = 250
 $timer.Add_Tick({
+ try {
   # ---- 工具箱的实时开关：改完立刻生效，不用重启悬浮层 ----
   try {
     if (Test-Path $ControlFile) {
@@ -781,6 +803,13 @@ $timer.Add_Tick({
   Update-DpsPanel $state
 
   $show = [bool]$state.visible -and $script:ctrlVisible
+  if (-not $show -and $script:wasShownFlag) {
+    # 只在「本来是亮着的 → 刚刚灭掉」这一次记一笔，方便事后查为什么灭
+    $script:wasShownFlag = $false
+    try { Log ("hide: " + [string]$state.why) } catch {}
+  } elseif ($show) {
+    $script:wasShownFlag = $true
+  }
   if (-not $show) {
     if ($script:anyShown) {
       foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false }
@@ -788,6 +817,10 @@ $timer.Add_Tick({
       $script:anyShown = $false
       # 徽标藏起来之后清掉缓存，下次弹出来时按当前内容重排一次
       for ($k = 0; $k -lt 4; $k++) { $script:badgeKey[$k] = "" }
+    }
+    if ($script:glowRects.Count -gt 0) {
+      foreach ($r in $script:glowRects) { try { $form.Invalidate($r) } catch {} }
+      $script:glowRects = @()
     }
     $script:wasVisible = $false
     return
@@ -800,12 +833,18 @@ $timer.Add_Tick({
   $sh = [int](19 * $script:fontScale)
 
   $slots = @($state.slots)
+  $newGlow = @()
   for ($i = 0; $i -lt 4; $i++) {
     $b = $script:badges[$i]
     if ($i -lt $slots.Count) {
       $s = $slots[$i]
       $cx = [int]($w * [double]$s.x)
       $cy = [int]($h * [double]$s.y)
+      # 预设命中：在徽标外面套一圈呼吸金边
+      if ([int]$s.preset -gt 0) {
+        $newGlow += New-Object System.Drawing.Rectangle `
+          (($cx - [int]($bw / 2)) - 4), ($cy - 4), ($bw + 8), ($bh + $sh + 8)
+      }
       $main = [string]$s.main
       $note = [string]$s.note
       $best = [bool]$s.best
@@ -836,6 +875,16 @@ $timer.Add_Tick({
     }
   }
 
+  # ---- 外发光：亮度每 400ms 换一档，只在需要时重画那一小块 ----
+  $phase = [int](([DateTime]::Now.Ticks / 4000000) % 4)
+  if ($newGlow.Count -ne $script:glowRects.Count -or $phase -ne $script:glowPhase) {
+    $old = $script:glowRects
+    $script:glowRects = $newGlow
+    $script:glowPhase = $phase
+    foreach ($r in $old) { try { $form.Invalidate($r) } catch {} }
+    foreach ($r in $newGlow) { try { $form.Invalidate($r) } catch {} }
+  }
+
   # 底部那一行常驻信息：DoT 层数决定持续时间卡到底有没有收益，放这儿方便对照
   $extra = ""
   if ($null -ne $state.stats.dots) { $extra = $extra + "  层数" + [string]$state.stats.dots }
@@ -859,6 +908,11 @@ $timer.Add_Tick({
       try { $null = [Microsoft.VisualBasic.Interaction]::AppActivate("Azeroth Survivors") } catch {}
     }
   }
+ } catch {
+   # 任何一帧出错都只记一行日志，绝不让定时器整体停掉
+   # （以前 Tick 里抛一次异常，整个悬浮层就再也不更新，只能重启工具箱）
+   try { Log ("tick: " + $_.Exception.Message) } catch {}
+ }
 })
 $timer.Start()
 

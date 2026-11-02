@@ -1,8 +1,8 @@
 {
- "version": "1.0.8",
- "released": "2026-11-01 16:18",
+ "version": "1.2.0",
+ "released": "2026-11-02 11:36",
  "notes": [
-  "伤害统计框可鼠标拖动、右下角拉大小、双击恢复自动高度，位置自动记住"
+  "常规更新"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -18,8 +18,8 @@
    "size": 6372
   },
   "azs_config.py": {
-   "sha256": "95c11d04d9a888630511260b711a156fa64f28c63197af65e85ce77fcd126b3b",
-   "size": 14302
+   "sha256": "7cca9a2fe3f9a6a5601b1cef6439fe425ae3098ce1dd70acefb759c460687f9c",
+   "size": 18262
   },
   "azs_dialog.py": {
    "sha256": "d9bd14a3a06c292086529b3e5871dca0f3b541af697a2f318235dd93ec8ce811",
@@ -37,45 +37,53 @@
    "sha256": "c24c1d773fb412d3e353e9f46faa585d061f36aea3c6015629c40586a2812652",
    "size": 15679
   },
+  "azs_page_preset.py": {
+   "sha256": "a491343439489af3e5d8a7fd2aac8d0292e09992ea96c92a5711dd050ebc26e2",
+   "size": 8609
+  },
   "azs_page_spells.py": {
-   "sha256": "affd364f31e52a8f6ba1d0ac2e00ca37ed63ead2b0a8082ed229ebe86a35fa76",
-   "size": 18340
+   "sha256": "12608cd023cbf421f071312fbf65032ecc9af6b818151ede42c4037cba109338",
+   "size": 18565
   },
   "azs_page_update.py": {
-   "sha256": "76f46f7843716bd31e8742b3ade2633ae50a62decb166c9ce346dbbb1398d85d",
-   "size": 12824
+   "sha256": "d6a3d1d8b5161c8e95bcd1716bb90dcde5e840c37433c57cdf6e512b884485df",
+   "size": 14488
   },
   "azs_pages.py": {
-   "sha256": "3385e9aeb2dfb306908dbdaa632bc4c3a9515547fb250e699fad63acbf67a02f",
-   "size": 30411
+   "sha256": "74c8c03f1ad806a13b507fafc3218b57a18c6532d77ed0c53482c915bf555637",
+   "size": 37987
   },
   "azs_paths.py": {
-   "sha256": "e6957f2f0af80afdb6c6bb971af8ff6650affceacaa4e37de9ed1a8868f7e4ca",
-   "size": 4793
+   "sha256": "98a074ac61919775019b8db633b035cd712474b2eac441e5b7617358c7b03a1b",
+   "size": 4659
   },
   "azs_proc.py": {
    "sha256": "1ab00791316a9adc316e4818c79d2a2fe10a8b5ca9319d3c2fd7ddc145ad3f9d",
    "size": 12798
   },
+  "azs_strength.py": {
+   "sha256": "297a59c0dcd2817ca138e6daf27cf3a5934a463ed09630428bdd258d2ad1f510",
+   "size": 7123
+  },
   "azs_theme.py": {
-   "sha256": "ad985d295418858f6848f67ffe36020d4681e13ffaa774644f13be45a1bf8d3a",
-   "size": 6616
+   "sha256": "e6b9cb8dc507def7276216a65cf9f8de19ca0cfdf8dfac6bc423340a91888bb4",
+   "size": 15219
   },
   "azs_toolkit.py": {
    "sha256": "bda97a289a5eeae892dc8f6d9e5a18beb92f0a8f0073c80a256cc08cd53efb87",
    "size": 3373
   },
   "azs_ui.py": {
-   "sha256": "f0adf5582b1423e529f7f74ae0692598372cf4af24677acb58ce27374a1abdb0",
-   "size": 20954
+   "sha256": "c5b003fe0b6a7c17df53e4c4da20232e42efa8dc02728a25ed2ef95f50d4199c",
+   "size": 23311
   },
   "azs_update.py": {
-   "sha256": "23a3425588fff0d56eecbdcc11bc743e2f07d36cfcc059590bc127a7cb7f11ee",
-   "size": 12319
+   "sha256": "83474aeb455d24524d408970366b0ce5d81b57e388e4d0c80f5fa08e6d9a08f4",
+   "size": 13286
   },
   "brain.py": {
-   "sha256": "2213141e36ed236b5127e3c11b8d9d0db29ce4a9b6ad598e47cdc3e46ee48f3c",
-   "size": 34630
+   "sha256": "f6b9e911f78c2db9137217a4b87ec66601aa7db7427e6d501771177195c65b26",
+   "size": 43462
   },
   "builds.json": {
    "sha256": "bbe4b7225563e04989ce0803204bd3927622c9947a03f8ce75f4764aad94d8c4",
@@ -94,8 +102,8 @@
    "size": 599
   },
   "overlay.ps1": {
-   "sha256": "11f6043cd6ac738b58f8176e896b9392c1367387aea40202400a4c3d828fff1d",
-   "size": 38764
+   "sha256": "6de039f108f745a6766e1ca4507d63d65e32526d5d7644323d6ec561c9b9fdf7",
+   "size": 41198
   },
   "rec_offsets.json": {
    "sha256": "6232f9e84981447cd25b1c3772d976818e6c1f9bfd1654a22a8be344f6455632",
@@ -1846,8 +1854,8 @@
    "size": 24526
   },
   "使用说明.txt": {
-   "sha256": "9c99d3dbcec8147bad61d3e7281fdd3f8dd98f47f0463506678fb7821aaf909a",
-   "size": 15407
+   "sha256": "e003ed14bee1afc67f30e03591ef07ea81af660981969d8b09a589dc5ff696bd",
+   "size": 16006
   },
   "技能面板.cmd": {
    "sha256": "b8df3f71d7580e875bab7e3857ed64fe7c1326e6b5bb3ab8ad339207ac7b1933",
@@ -1890,8 +1898,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "2437eccf42f41368fc349f751e249fb65507e6d162d61151c13e74444fa05f5f",
-   "size": 15390
+   "sha256": "cd62e3ba99c13ea8bb21edb99bc84ff5562ba4ef1afe81f83a142a870e4bf2f5",
+   "size": 21918
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",

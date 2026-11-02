@@ -92,14 +92,42 @@ def is_newer(remote, local):
 
 
 # --------------------------------------------------------------------- 检查
-def check(manifest_url, timeout=20):
-    """拉清单并比对版本。返回 dict，永远不抛异常（失败信息放 error）。"""
+def check(manifest_url, timeout=20, alts=None):
+    """拉清单并比对版本。返回 dict，永远不抛异常（失败信息放 error）。
+
+    第一个地址不通时会依次试 alts 里的备选地址 —— GitHub 直连在国内
+    时通时不通，多留几条路比让用户自己改配置现实。
+    """
+    urls = []
+    for u in [manifest_url] + list(alts or []):
+        u = (u or "").strip()
+        if u and u not in urls:
+            urls.append(u)
+    if not urls:
+        return {"ok": False, "error": "还没填更新地址", "manifest": None,
+                "base": "", "version": "", "notes": [], "released": "",
+                "files": {}}
+
+    last = None
+    for i, u in enumerate(urls):
+        res = _check_one(u, timeout)
+        if res.get("ok"):
+            res["used_url"] = u
+            res["tried"] = i + 1
+            res["total_urls"] = len(urls)
+            return res
+        last = res
+    last = last or {"ok": False, "error": "检查失败"}
+    last["total_urls"] = len(urls)
+    if len(urls) > 1:
+        last["error"] = "%s（%d 个地址都试过了）" % (last.get("error") or "", len(urls))
+    return last
+
+
+def _check_one(manifest_url, timeout=20):
+    """单个地址的检查。"""
     res = {"ok": False, "error": "", "manifest": None, "base": "",
            "version": "", "notes": [], "released": "", "files": {}}
-    manifest_url = (manifest_url or "").strip()
-    if not manifest_url:
-        res["error"] = "还没填更新地址"
-        return res
     if not manifest_url.lower().startswith(("http://", "https://")):
         res["error"] = "更新地址必须以 http:// 或 https:// 开头"
         return res

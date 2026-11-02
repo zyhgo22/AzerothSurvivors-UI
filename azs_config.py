@@ -51,6 +51,24 @@ TALENT_ITEMS = [
      "回声从 1+E 变成 1+E+E²+E³，回声卡的收益会明显变高。"),
 ]
 
+# --------------------------------------------------------------- 更新地址
+# GitHub 上放 latest.json 的仓库。raw.githubusercontent.com 在国内经常连不上，
+# 所以走一层公共加速镜像；主地址不通时自动换后面的备选。
+GITHUB_REPO = "zyhgo22/AzerothSurvivors-UI"
+GITHUB_BRANCH = "main"
+RAW_MANIFEST = "https://raw.githubusercontent.com/%s/%s/latest.json" % (
+    GITHUB_REPO, GITHUB_BRANCH)
+
+# 排在前面的优先用。这几个都实测过能取到 latest.json。
+MIRROR_PREFIXES = [
+    "https://ghproxy.net/",
+    "https://gh-proxy.com/",
+]
+
+DEFAULT_MANIFEST_URL = MIRROR_PREFIXES[0] + RAW_MANIFEST
+FALLBACK_MANIFEST_URLS = ([RAW_MANIFEST]
+                          + [p + RAW_MANIFEST for p in MIRROR_PREFIXES[1:]])
+
 DEFAULT_PROFILE = {
     "class": "paladin",
     "talents": {
@@ -92,12 +110,19 @@ DEFAULTS = {
         "toggle_overlay": "F8",
         "toggle_panel": "F9",
     },
+    # 我的优先级：不再依赖 builds.json 里事先写好的流派，
+    # 想要什么技能 / 首饰自己填，靠前的更想要，游戏里命中的卡会发光。
+    "preset": {
+        "enabled": True,
+        "skills": [],
+        "gear": [],
+    },
     "profile": {
         "active": "默认方案",
         "items": {"默认方案": copy.deepcopy(DEFAULT_PROFILE)},
     },
     "update": {
-        "manifest_url": "",
+        "manifest_url": DEFAULT_MANIFEST_URL,
         "auto_check": True,
         "last_check": 0.0,
         "skipped_version": "",
@@ -172,6 +197,25 @@ class Config:
             self.data = self._migrate_legacy(copy.deepcopy(DEFAULTS))
             self.loaded_from = "新建"
         self._normalise()
+        # 老配置里的空地址 / 缺的 preset 是刚才在内存里补上的，顺手写回文件，
+        # 免得「设置」页读到的和实际加载的不一样。
+        if isinstance(raw, dict) and self._stale(raw):
+            try:
+                _write_json(CONFIG_PATH, self.data)
+            except Exception:
+                pass
+
+    def _stale(self, raw):
+        """刚补过东西？用来决定要不要马上落盘。"""
+        upd = raw.get("update")
+        if not isinstance(upd, dict):
+            return True
+        if not str(upd.get("manifest_url") or "").strip():
+            return True
+        pre = raw.get("preset")
+        if not isinstance(pre, dict):
+            return True
+        return not isinstance(pre.get("skills"), list) or not isinstance(pre.get("gear"), list)
 
     def _migrate_legacy(self, cfg):
         old = _read_json(SETTINGS_PATH)
@@ -220,6 +264,46 @@ class Config:
         if active not in prof_items:
             d["profile"]["active"] = sorted(prof_items)[0]
 
+        # 我的优先级：结构必须规整，不然页面和 brain 各读各的。
+        pre = d.setdefault("preset", {})
+        if not isinstance(pre, dict):
+            pre = {"enabled": True, "skills": [], "gear": []}
+            d["preset"] = pre
+        pre["enabled"] = bool(pre.get("enabled", True))
+        for key, cap in (("skills", 40), ("gear", 20)):
+            vals = pre.get(key)
+            if not isinstance(vals, list):
+                vals = []
+            seen, out = set(), []
+            for v in vals:
+                s = str(v or "").strip()
+                if not s or s in seen:
+                    continue
+                seen.add(s)
+                out.append(s)
+                if len(out) >= cap:
+                    break
+            pre[key] = out
+
+        # 1.0.x 升上来时 config.json 里还没有 preset 这一项，之前填过的清单
+        # 只留在派生的 settings.json 里。这里捞一次，免得升级等于清空。
+        if not pre["skills"] and not pre["gear"]:
+            old = _read_json(SETTINGS_PATH)
+            src = (old or {}).get("preset") if isinstance(old, dict) else None
+            if isinstance(src, dict):
+                for key in ("skills", "gear"):
+                    vals = src.get(key)
+                    if isinstance(vals, list) and vals:
+                        pre[key] = [str(v).strip() for v in vals if str(v).strip()]
+                if pre["skills"] or pre["gear"]:
+                    pre["enabled"] = bool(src.get("enabled", True))
+
+        # 更新地址：老配置里是空字符串，装完新版本直接补上默认值，
+        # 免得用户还得自己去「设置」里抄一遍地址。
+        upd = d.setdefault("update", {})
+        if not str(upd.get("manifest_url") or "").strip():
+            upd["manifest_url"] = DEFAULT_MANIFEST_URL
+
     # ------------------------------------------------------------- 写
     def save(self, sync_settings=True):
         self.data["schema"] = SCHEMA
@@ -252,6 +336,8 @@ class Config:
             "panel": bool(ov.get("panel", True)),
             # 当前选中的流派（builds.json 里的 id），空字符串表示不启用
             "spec": ov.get("spec") or "",
+            # 我的优先级（自己填的技能 / 首饰清单）
+            "preset": d.get("preset") or {"enabled": True, "skills": [], "gear": []},
         }
         try:
             _write_json(SETTINGS_PATH, payload, keep_backup=False)

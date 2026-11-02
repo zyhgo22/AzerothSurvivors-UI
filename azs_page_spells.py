@@ -16,6 +16,7 @@ import time
 import dearpygui.dearpygui as dpg
 
 import azs_theme as T
+from azs_pages import _cell_theme
 
 FIELD_ORDER = ["dmg", "cd", "range", "radius", "cnt", "dur"]
 FIELD_CN = {"dmg": "伤害", "cd": "冷却", "range": "施法距离",
@@ -29,7 +30,7 @@ FIELD_HINT = {
     "dur": "地面 / DoT 持续秒数；瞬发技为 0",
 }
 LIST_W = 320
-PANEL_H = 424
+PANEL_H = 316
 
 
 class SpellsPage:
@@ -86,23 +87,37 @@ class SpellsPage:
             dpg.add_spacer(height=10)
 
             # ---- 主体 ----
-            with dpg.group(horizontal=True):
-                dpg.add_spacer(width=26)
-                with dpg.child_window(width=LIST_W, height=PANEL_H, border=True):
-                    dpg.add_spacer(height=6)
-                    with dpg.group(horizontal=True):
-                        dpg.add_spacer(width=10)
-                        dpg.add_input_text(tag="sp_search", width=LIST_W - 40,
-                                           hint="搜索 中文 / 英文 / spellid",
-                                           callback=self.rebuild_list)
-                    dpg.add_spacer(height=6)
-                    with dpg.child_window(tag="sp_list", width=-1, height=-1,
-                                          border=False):
-                        dpg.add_text("      还没读取", color=T.C_TEXT_FAINT,
-                                     tag="sp_list_empty")
-                dpg.add_spacer(width=14)
-                with dpg.child_window(width=-1, height=PANEL_H, border=True):
-                    self._build_editor()
+            # 两栏走表格：直接放 group(horizontal=True) 里的话，
+            # 右边 width=-1 会按整个父宽算，卡片被顶到窗口外面去。
+            with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                           width=-1, pad_outerX=True,
+                           borders_innerV=False, borders_innerH=False,
+                           borders_outerH=False, borders_outerV=False,
+                           scrollX=False, scrollY=False) as tb:
+                dpg.bind_item_theme(tb, _cell_theme(20))
+                dpg.add_table_column(init_width_or_weight=0.86)
+                dpg.add_table_column(init_width_or_weight=1.0)
+                with dpg.table_row():
+                    with dpg.table_cell():
+                        with dpg.child_window(width=-1, height=PANEL_H,
+                                              border=True):
+                            dpg.add_spacer(height=6)
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=10)
+                                dpg.add_input_text(tag="sp_search",
+                                                   width=270,
+                                                   hint="搜索 中文 / 英文 / spellid",
+                                                   callback=self.rebuild_list)
+                            dpg.add_spacer(height=6)
+                            with dpg.child_window(tag="sp_list", width=-1,
+                                                  height=-1, border=False):
+                                dpg.add_text("      还没读取",
+                                             color=T.C_TEXT_FAINT,
+                                             tag="sp_list_empty")
+                    with dpg.table_cell():
+                        with dpg.child_window(width=-1, height=PANEL_H,
+                                              border=True):
+                            self._build_editor()
 
             dpg.add_spacer(height=10)
             with dpg.group(horizontal=True):
@@ -127,54 +142,46 @@ class SpellsPage:
         return tag
 
     def _build_editor(self):
-        dpg.add_spacer(height=10)
+        # 按钮放最上面：卡片高度受窗口约束，放底部会被裁掉看不见
+        dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=14)
-            with dpg.group():
-                n = dpg.add_text("未选中", tag="sp_name", color=T.C_GOLD)
-                T.set_font(n, "bold")
-                sub = dpg.add_text("", tag="sp_sub", color=T.C_TEXT_FAINT)
-                T.set_font(sub, "small")
-        dpg.add_spacer(height=8)
-        dpg.add_separator()
-        dpg.add_spacer(height=8)
-
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=14)
-            with dpg.table(header_row=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True, row_background=True,
-                           no_host_extendX=True):
-                dpg.add_table_column(label="字段", width_fixed=True,
-                                     init_width_or_weight=90)
-                dpg.add_table_column(label="当前值", width_fixed=True,
-                                     init_width_or_weight=130)
-                dpg.add_table_column(label="游戏原值", width_fixed=True,
-                                     init_width_or_weight=110)
-                cols = {"dmg": "伤害", "cd": "冷却", "range": "施法距离",
-                        "radius": "范围半径", "cnt": "弹道", "dur": "持续"}
-                order = ["dmg", "cd", "range", "radius", "cnt", "dur"]
-                for f in order:
-                    with dpg.table_row():
-                        dpg.add_text(cols[f], color=T.C_TEXT_DIM)
-                        if f == "cnt":
-                            dpg.add_input_int(tag="sp_in_" + f, width=118,
-                                              step=0, default_value=1)
-                        else:
-                            dpg.add_input_float(tag="sp_in_" + f, width=118,
-                                                step=0, format="%.3f",
-                                                default_value=0.0)
-                        dpg.add_text("", tag="sp_old_" + f, color=T.C_TEXT_FAINT)
-
-        dpg.add_spacer(height=10)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=14)
-            b = dpg.add_button(label="   应 用 到 这 个 技 能   ", height=34,
+            n = dpg.add_text("未选中", tag="sp_name", color=T.C_GOLD)
+            T.set_font(n, "bold")
+            dpg.add_spacer(width=10)
+            b = dpg.add_button(label="  应 用  ", height=28,
                                callback=self.on_apply_one)
             dpg.bind_item_theme(b, T.accent_button_theme())
-            dpg.add_spacer(width=8)
-            dpg.add_button(label="  恢复原值  ", height=34,
+            dpg.add_spacer(width=6)
+            dpg.add_button(label="  恢复  ", height=28,
                            callback=self.on_revert_one)
-        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            sub = dpg.add_text("", tag="sp_sub", color=T.C_TEXT_FAINT)
+            T.set_font(sub, "small")
+        dpg.add_spacer(height=6)
+
+        with dpg.table(header_row=True, policy=dpg.mvTable_SizingStretchProp,
+                       borders_innerV=False, row_background=False,
+                       width=-1, pad_outerX=True):
+            dpg.add_table_column(label="字段", width_fixed=True,
+                                 init_width_or_weight=88)
+            dpg.add_table_column(label="当前值", init_width_or_weight=1.0)
+            dpg.add_table_column(label="游戏原值", width_fixed=True,
+                                 init_width_or_weight=86)
+            cols = {"dmg": "伤害", "cd": "冷却", "range": "施法距离",
+                    "radius": "范围半径", "cnt": "弹道", "dur": "持续"}
+            order = ["dmg", "cd", "range", "radius", "cnt", "dur"]
+            for f in order:
+                with dpg.table_row():
+                    dpg.add_text(cols[f], color=T.C_TEXT_DIM)
+                    if f == "cnt":
+                        dpg.add_input_int(tag="sp_in_" + f, width=-1,
+                                          step=0, default_value=1)
+                    else:
+                        dpg.add_input_float(tag="sp_in_" + f, width=-1,
+                                            step=0, format="%.3f",
+                                            default_value=0.0)
+                    dpg.add_text("", tag="sp_old_" + f, color=T.C_TEXT_FAINT)
+
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=14)
             dpg.add_text("", tag="sp_dirty", color=T.C_AMBER, wrap=520)

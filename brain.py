@@ -11,6 +11,7 @@
 """
 import datetime
 import json
+import math
 import os
 import re
 import subprocess
@@ -22,6 +23,11 @@ try:
     import azs_model as MODEL
 except Exception:          # 模型文件缺失时不让后台进程直接死掉
     MODEL = None
+
+try:
+    import azs_strength as STR
+except Exception:          # 静态强度表缺失时退回旧行为
+    STR = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(HERE, "logs", "client.log")
@@ -310,6 +316,50 @@ DOT_TEXT_RE = re.compile(
     r"在\s*(\d+(?:\.\d+)?)\s*秒内分\s*(\d+(?:\.\d+)?)\s*跳造成\s*(\d+(?:\.\d+)?)\s*点")
 
 
+def known_spell_names():
+    """身上已经学到的技能名（用来给新技能卡算相对强度）"""
+    return [n for n in (ST.spells or {}) if (n or "").strip()]
+
+
+def static_share(name):
+    """没有伤害统计时，用客户端技能表估一个「预计占总伤害」的比例
+
+    以前这里直接返回「尚无伤害统计」，结果刚开一局 / 换了职业还没打过怪时，
+    所有新技能卡都显示「无法计算」。现在改成按技能表横向比一次。
+    """
+    if STR is None:
+        return None
+    try:
+        return STR.new_spell_share(name, known_spell_names())
+    except Exception:
+        return None
+
+
+def boss_tail(name):
+    """打 BOSS 特化标记，接在说明后面"""
+    if STR is None:
+        return ""
+    try:
+        tags = STR.boss_tags(name)
+    except Exception:
+        return ""
+    return ("  打BOSS·" + "/".join(tags)) if tags else ""
+
+
+def _soft_pct(share):
+    """把「预计占比」压进 0~30% 的曲线
+
+    以前直接 min(30, share*100)：占比超过 30% 的卡全被截成同一个数，
+    三张牌又变得分不出高下。改成平滑饱和，永远逼近但不超过 30，
+    而且占比越大数值越大。
+    """
+    try:
+        sh = max(0.0, float(share))
+    except (TypeError, ValueError):
+        return 0.0
+    return 30.0 * (1.0 - math.exp(-3.0 * sh))
+
+
 def estimate_new_spell(choice):
     """新技能：用卡面伤害数值 + 技能表冷却，粗估 DPS 占比
 
@@ -335,10 +385,15 @@ def estimate_new_spell(choice):
             stacks = min(d / max(0.2, cd), cap)
             dps = total / max(0.5, d) * tgt * stacks
             if tdps <= 1.0:
-                return None, "尚无伤害统计", False
+                sh = static_share(name)
+                if sh is None:
+                    return None, "尚无伤害统计", False
+                return (_soft_pct(sh),
+                        "新DoT %.0f伤/%.0fs×%g目标  按技能表估%s"
+                        % (total, d, tgt, boss_tail(name)), False)
             pct = min(30.0, dps / tdps * 100.0)
-            return pct, "新DoT %.0f伤/%.0fs×%g目标×%.1f层" % (
-                total, d, tgt, stacks), False
+            return pct, "新DoT %.0f伤/%.0fs×%g目标×%.1f层%s" % (
+                total, d, tgt, stacks, boss_tail(name)), False
 
     # 「造成X点」「受到X点」都要认
     hits = re.findall(r"(?:各)?(?:造成|受到)\s*(\d+(?:\.\d+)?)\s*点", text)
@@ -365,12 +420,18 @@ def estimate_new_spell(choice):
     dps = dmg * targets / max(0.3, cd * cd_stat) * (1.0 + bonus / 100.0)
 
     if tdps <= 1.0:
-        return None, "尚无伤害统计", False
+        sh = static_share(name)
+        if sh is None:
+            return None, "尚无伤害统计", False
+        return (_soft_pct(sh),
+                "新技能 %g×%g目标/%.1fs 按技能表估%s"
+                % (dmg, targets, cd * cd_stat, boss_tail(name)), False)
     pct = dps / tdps * 100.0
     capped = pct > 30.0
     pct = min(30.0, pct)
-    note = "新技能 %g×%g目标/%.1fs%s" % (dmg, targets, cd * cd_stat,
-                                        ("+%.0f%%" % bonus) if bonus else "")
+    note = "新技能 %g×%g目标/%.1fs%s%s" % (dmg, targets, cd * cd_stat,
+                                           ("+%.0f%%" % bonus) if bonus else "",
+                                           boss_tail(name))
     if capped:
         note += " 封顶"
     return pct, note, False
@@ -415,9 +476,14 @@ def estimate_killproc(choice):
 
     tdps = total_dps()
     if tdps <= 1.0:
-        return None, "尚无伤害统计", False
+        sh = static_share(name)
+        if sh is None:
+            return None, "尚无伤害统计", False
+        return (_soft_pct(sh),
+                "击杀触发 %g伤×%.1f/s 按技能表估%s"
+                % (per_hit, freq, boss_tail(name)), False)
     pct = min(30.0, per_hit * targets * freq / tdps * 100.0)
-    return pct, "击杀触发·%g伤害×%.1f/s" % (per_hit, freq), False
+    return pct, "击杀触发·%g伤害×%.1f/s%s" % (per_hit, freq, boss_tail(name)), False
 
 
 def build_ctx():
@@ -527,14 +593,110 @@ def note_unknown(choice, note):
         pass
 
 
+def preset_lists():
+    """工具箱里自己填的优先级清单（越靠前越想要）
+
+    settings.json 里长这样：
+      "preset": {"enabled": true, "skills": ["腐蚀术", "痛苦诅咒"],
+                 "gear": ["哈卡之眼"]}
+    也容忍一个字符串（用换行/逗号分隔），方便手改。
+    """
+    p = SETTINGS.get("preset") or {}
+
+    def _clean(v):
+        if isinstance(v, str):
+            parts = re.split(r"[\n,，;；]+", v)
+        elif isinstance(v, list):
+            parts = v
+        else:
+            return []
+        return [str(x).strip() for x in parts if str(x).strip()]
+
+    if p.get("enabled") is False:
+        return [], []
+    return _clean(p.get("skills")), _clean(p.get("gear"))
+
+
+def _bare(name):
+    return re.sub(r"^新(?:法术|技能)[：:]\s*", "", (name or "").strip())
+
+
+def preset_rank(name):
+    """命中预设时返回优先级（1 最高），没命中返回 0
+
+    匹配用「互相包含」：预设里写「腐蚀术」，卡面写「新法术：腐蚀术」也算命中。
+    短名字（<2 字）不做包含匹配，避免「火」把「火焰冲击」也算进来。
+    """
+    n = _bare(name)
+    if not n:
+        return 0
+    skills, gears = preset_lists()
+    for i, s in enumerate(skills):
+        if s == n or (len(s) >= 2 and (s in n or n in s)):
+            return i + 1
+    for i, g in enumerate(gears):
+        if g == n or (len(g) >= 2 and (g in n or n in g)):
+            return i + 1
+    return 0
+
+
+def build_preset_panel():
+    """把预设清单画成悬浮层右侧那块面板（结构和流派面板一致）"""
+    skills, gears = preset_lists()
+    if not skills and not gears:
+        return {}
+    learned = {str(k).strip(): v for k, v in (ST.spells or {}).items()}
+    rows = []
+    done = 0
+    for i, s in enumerate(skills[:8]):
+        rank = None
+        for k, v in learned.items():
+            if k == s or (len(s) >= 2 and (s in k or k in s)):
+                rank = v.get("rank") if isinstance(v, dict) else v
+                break
+        if rank:
+            done += 1
+            rows.append({"zh": s, "state": "ok", "note": "R%s" % rank, "must": i < 2})
+        else:
+            rows.append({"zh": s, "state": "missing", "note": "缺少", "must": i < 2})
+    grows = []
+    for i, g in enumerate(gears[:6]):
+        worn = False
+        try:
+            for slot, info in (ST.gear or {}).items():
+                gid = (info or {}).get("id") or (info or {}).get("affix") or ""
+                if gid and (gid in g or g in (info or {}).get("name", "")):
+                    worn = True
+                    break
+        except Exception:
+            pass
+        grows.append({"name": g, "state": "ok" if worn else "missing",
+                      "bonus": "", "must": i < 2})
+    total = len(rows) + len(grows)
+    return {
+        "id": "preset",
+        "class": "预设",
+        "name": "我的优先级",
+        "title": "预设 · 我的优先级",
+        "done": done,
+        "total": total,
+        "skills": rows,
+        "gear": grows,
+    }
+
+
 def build_panel():
     """游戏内「流派面板」要显示的内容：这条流派要什么、我身上有什么。
 
     工具箱那一页和悬浮层共用同一份数据，只是画法不同。
     没选流派 / 没认出职业时返回空，悬浮层就整块不画。
     """
-    spec_id = (SETTINGS.get("spec") or "").strip()
+    spec_id = SETTINGS.get("spec") or ""
     cls = (getattr(ST, "cls", "") or "").strip().lower()
+    # 预设优先：自己填过清单就画预设，没填才退回流派面板
+    pre = build_preset_panel()
+    if pre:
+        return pre
     if not spec_id or not cls:
         return {}
     try:
@@ -641,8 +803,16 @@ def build_state():
         best = max(known) if known else None
         # 流派点名要的技能优先：只要牌里有流派核心，★ 就只从它们里面出，
         # 数字再大的杂牌也抢不走这个标记
+        # 预设点名要的技能优先：只要牌里有预设项，★ 就只从它们里面出
+        _sk, _gr = preset_lists()
+        has_pre = bool(_sk or _gr)
         for r in results:
-            r["spec"] = spec_hit(r.get("name"))
+            pr = preset_rank(r.get("name"))
+            r["preset"] = pr
+            if has_pre:
+                r["spec"] = "must" if (pr and pr <= 2) else ("opt" if pr else "")
+            else:
+                r["spec"] = spec_hit(r.get("name"))
         must = [r for r in results if r["spec"] == "must"]
         if must:
             cand = [r["pct"] for r in must if r["pct"] is not None]
@@ -669,14 +839,32 @@ def build_state():
             else:
                 r["main"] = ("+%.1f%%" % r["pct"]) if r["confident"] else ("≈+%.1f%%" % r["pct"])
             if r["spec"] == "must" and r["pct"] is not None and not r["util"]:
-                # 流派核心：标在数字前面，一眼能看出「这张是冲我来的」
-                r["main"] = "★ 流派 " + r["main"]
+                # 预设命中：标在数字前面，一眼能看出「这张是冲我来的」
+                r["main"] = ("★ 预设 " if has_pre else "★ 流派 ") + r["main"]
             elif r["best"]:
                 r["main"] = "★ " + r["main"]
             slots.append(r)
 
+    # 为什么没显示：出问题时看一眼 brain.err 就知道卡在哪一步，
+    # 不用再靠「重启试试」猜。
+    if visible:
+        why = ""
+    elif ST.offer is None:
+        why = "还没收到选卡事件"
+    elif ST.resolved:
+        why = "这张卡已经选完"
+    elif not ST.game_seen:
+        why = "没检测到游戏进程"
+    elif not sim_paused:
+        why = "模拟还在跑(心跳未停)"
+    elif not fresh:
+        why = "这张卡超过%.0f秒了" % cfg.get("max_picker_seconds", 600)
+    else:
+        why = "?"
+
     return {
         "visible": visible,
+        "why": why,
         "status": "picker" if visible else ("waiting" if not ST.stats else "idle"),
         "level": (ST.offer or {}).get("level"),
         "total_dps": round(total_dps(), 1),
@@ -828,6 +1016,34 @@ def game_running():
         return True
 
 
+_ALIVE = {"ts": 0.0, "v": True, "no": 0}
+
+
+def game_alive():
+    """带缓存的进程检测
+
+    tasklist 一次几十毫秒，以前每 0.25 秒调四次；系统一忙就可能卡住整个读取循环，
+    而读取循环一卡，日志就可能被新文件顶掉（见 main 里的文件身份检查）。
+    现在 3 秒查一次，而且要连续两次查不到才算「游戏真的退了」，
+    避免一次抖动就把状态清空、提示再也不出现。
+    """
+    now = time.time()
+    if now - _ALIVE["ts"] < 3.0:
+        return _ALIVE["v"]
+    _ALIVE["ts"] = now
+    v = game_running()
+    if v:
+        _ALIVE["v"] = True
+        _ALIVE["no"] = 0
+    else:
+        _ALIVE["no"] += 1
+        if _ALIVE["no"] >= 2:
+            _ALIVE["v"] = False
+        else:
+            return True     # 第一次查不到，先当作还活着
+    return _ALIVE["v"]
+
+
 def reset_state():
     ST.stats = {}
     ST.meter = []
@@ -866,6 +1082,24 @@ def write_state(state):
         pass
 
 
+def log_line(msg):
+    """普通诊断日志：只在关键时刻写一行，用来复盘「提示为什么不见了」"""
+    try:
+        with open(os.path.join(HERE, "logs", "brain.err"), "a", encoding="utf-8") as fh:
+            fh.write("%s %s\n" % (time.strftime("[%Y-%m-%d %H:%M:%S]"), msg))
+    except Exception:
+        pass
+
+
+def _file_ident(path):
+    """文件身份：换了文件（重新创建）时这个值会变，单纯变大变小抓不到"""
+    try:
+        st = os.stat(path)
+        return (getattr(st, "st_dev", 0), getattr(st, "st_ino", 0))
+    except Exception:
+        return None
+
+
 def log_error():
     import traceback
     try:
@@ -895,16 +1129,25 @@ def main():
     buf = ""
     last_flush = 0.0
     empty_polls = 0
+    # 文件身份（设备号 + 文件索引）。run.cmd 每次启动游戏都会把 client.log
+    # 重新创建一遍；如果新文件长得比旧读取位置还快，只看「大小变小了」是抓不到的，
+    # 之后就会一直从错误偏移读 → 再也收不到 choices 事件 → 提示永久消失。
+    ident = _file_ident(LOG)
 
     while True:
         try:
-            # 日志被 run.cmd 重新创建（截断）时，回到文件头重新读
+            # 日志被 run.cmd 重新创建（截断 / 换了个新文件）时，回到文件头重新读
             try:
-                if os.path.getsize(LOG) < fh.tell():
+                now_ident = _file_ident(LOG)
+                cur = fh.tell()
+                if now_ident != ident or os.path.getsize(LOG) < cur:
                     fh.close()
                     fh = open(LOG, "rb")
                     buf = ""
+                    ident = now_ident
+                    empty_polls = 0
                     reset_state()
+                    log_line("log rotated -> reopen")
             except Exception:
                 pass
 
@@ -926,9 +1169,10 @@ def main():
             if now - last_flush >= 0.25:
                 last_flush = now
                 reload_settings()
-                if not ST.game_seen and game_running():
+                alive = game_alive()
+                if not ST.game_seen and alive:
                     ST.game_seen = True
-                if ST.game_seen and empty_polls > 40 and not game_running():
+                if ST.game_seen and empty_polls > 120 and not alive:
                     # 游戏退出 -> 清空并待命，下一次启动不用重启本脚本
                     ST.game_seen = False
                     reset_state()

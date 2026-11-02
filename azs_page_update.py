@@ -20,6 +20,7 @@ import dearpygui.dearpygui as dpg
 import azs_paths as P
 import azs_theme as T
 import azs_update as U
+from azs_config import FALLBACK_MANIFEST_URLS
 
 
 class UpdatePage:
@@ -35,11 +36,13 @@ class UpdatePage:
 
     # ------------------------------------------------------------- 构建
     def build(self, parent, tag="page_update"):
+        from azs_pages import card, card_head, rule, _cell_theme, _row_table
+
         with dpg.child_window(tag=tag, parent=parent, border=False,
                               width=-1, show=False):
             dpg.add_spacer(height=10)
             with dpg.group(horizontal=True):
-                dpg.add_spacer(width=26)
+                dpg.add_spacer(width=24)
                 with dpg.group():
                     t = dpg.add_text("检查更新")
                     T.set_font(t, "huge")
@@ -48,46 +51,60 @@ class UpdatePage:
                         "有新版本时一键升级；你的方案、技能备份、日志都不会动。",
                         color=T.C_TEXT_DIM, wrap=820)
                     T.set_font(s, "small")
-            dpg.add_spacer(height=16)
+            dpg.add_spacer(height=14)
 
-            with dpg.group(horizontal=True):
-                dpg.add_spacer(width=26)
-                with dpg.child_window(width=-1, height=-1, border=True):
-                    dpg.add_spacer(height=14)
-                    with dpg.group(horizontal=True):
-                        dpg.add_spacer(width=18)
-                        with dpg.group():
-                            self._kv("当前版本", "up_cur")
+            # 表格负责左右留白：group(horizontal) 里的 width=-1 会按整页宽算，
+            # 卡片右边缘直接伸到窗口外面去。
+            with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                           width=-1, pad_outerX=True,
+                           borders_innerV=False, borders_innerH=False,
+                           borders_outerH=False, borders_outerV=False,
+                           scrollX=False, scrollY=False) as _tb:
+                dpg.bind_item_theme(_tb, _cell_theme(24))
+                dpg.add_table_column(init_width_or_weight=1.0)
+                with dpg.table_row():
+                    with dpg.table_cell():
+                        with card(268):
+                            card_head("版本信息", "在线通道与手动更新包都能用")
                             dpg.add_spacer(height=4)
-                            self._kv("最新版本", "up_latest")
-                            dpg.add_spacer(height=4)
-                            self._kv("更新通道", "up_channel")
-                    dpg.add_spacer(height=16)
-                    with dpg.group(horizontal=True):
-                        dpg.add_spacer(width=18)
-                        self.btn_main = dpg.add_button(
-                            label="   检 查 更 新   ", height=38,
-                            callback=self.on_check)
-                        dpg.bind_item_theme(self.btn_main,
-                                            T.accent_button_theme())
-                        dpg.add_spacer(width=10)
-                        dpg.add_button(label="   从更新包导入…   ", height=38,
-                                       callback=self.on_import)
-                        dpg.add_spacer(width=14)
-                        dpg.add_text("", tag="up_msg", color=T.C_TEXT_DIM,
-                                     wrap=560)
-                    dpg.add_spacer(height=16)
-                    dpg.add_separator()
-                    dpg.add_spacer(height=10)
-                    with dpg.group(horizontal=True):
-                        dpg.add_spacer(width=18)
-                        dpg.add_text("更新内容", color=T.C_TEXT_DIM)
-                    dpg.add_spacer(height=6)
-                    with dpg.group(horizontal=True):
-                        dpg.add_spacer(width=18)
-                        with dpg.child_window(width=-1, height=-1, border=False):
-                            dpg.add_text("还没有检查过更新。", tag="up_notes",
-                                         color=T.C_TEXT_FAINT, wrap=760)
+                            rule()
+                            dpg.add_spacer(height=2)
+                            _row_table([
+                                ("当前版本", "up_cur", "已安装的版本"),
+                                ("最新版本", "up_latest", "检查后才知道"),
+                                ("更新通道", "up_channel", "清单地址的主机"),
+                            ])
+                            dpg.add_spacer(height=2)
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=22)
+                                self.btn_main = dpg.add_button(
+                                    label="   检 查 更 新   ", height=36,
+                                    callback=self.on_check)
+                                dpg.bind_item_theme(
+                                    self.btn_main, T.accent_button_theme())
+                                dpg.add_spacer(width=10)
+                                dpg.add_button(
+                                    label="   从更新包导入…   ", height=36,
+                                    callback=self.on_import)
+                                dpg.add_spacer(width=14)
+                                dpg.add_text("", tag="up_msg",
+                                             color=T.C_TEXT_DIM, wrap=420)
+
+                with dpg.table_row():
+                    with dpg.table_cell():
+                        with card(244):
+                            card_head("更新内容", "检查后这里会列出这次的改动")
+                            dpg.add_spacer(height=6)
+                            rule()
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=22)
+                                with dpg.child_window(width=-1, height=-1,
+                                                      border=False):
+                                    dpg.add_text("还没有检查过更新。",
+                                                 tag="up_notes",
+                                                 color=T.C_TEXT_FAINT,
+                                                 wrap=860)
+            dpg.add_spacer(height=6)
         return tag
 
     def _kv(self, label, tag):
@@ -101,7 +118,12 @@ class UpdatePage:
     def refresh_basic(self):
         dpg.set_value("up_cur", "v" + P.VERSION)
         url = self.tk.cfg.update_cfg.get("manifest_url") or ""
-        dpg.set_value("up_channel", url or "未配置（只能手动导入更新包）")
+        # 地址太长会把这一行撑开，只显主机名够认路了
+        if url:
+            host = url.split("//", 1)[-1].split("/", 1)[0]
+            dpg.set_value("up_channel", "GitHub · " + host)
+        else:
+            dpg.set_value("up_channel", "未配置（只能手动导入更新包）")
         if not self.remote_version:
             dpg.set_value("up_latest", "—")
 
@@ -139,7 +161,7 @@ class UpdatePage:
         self._say("正在连接更新服务器…", T.C_TEXT_DIM)
 
         def work():
-            res = U.check(url)
+            res = U.check(url, alts=FALLBACK_MANIFEST_URLS)
             self._pending = ("checked", res)
 
         threading.Thread(target=work, daemon=True).start()

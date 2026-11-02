@@ -21,15 +21,22 @@ from azs_proc import ProcManager
 
 # 导航项只放纯文字：微软雅黑对 ▤ ✦ ⟳ 这类符号没有字形，渲染出来是问号。
 # 用两位数编号代替图标，既有秩序感又不会掉字。
-NAV_ITEMS = [
-    ("home", "开始游戏", "01"),
-    ("overlay", "悬浮层", "02"),
-    ("spells", "技能数值", "03"),
-    ("builds", "流派", "04"),
-    ("profile", "方案与天赋", "05"),
-    ("update", "检查更新", "06"),
-    ("settings", "设置", "07"),
+NAV_GROUPS = [
+    ("运行", [
+        ("home", "开始游戏", "01"),
+        ("overlay", "悬浮层", "02"),
+        ("spells", "技能数值", "03"),
+    ]),
+    ("配置", [
+        ("preset", "预设", "04"),
+        ("profile", "方案与天赋", "05"),
+    ]),
+    ("其他", [
+        ("update", "检查更新", "06"),
+        ("settings", "设置", "07"),
+    ]),
 ]
+NAV_ITEMS = [it for _, group in NAV_GROUPS for it in group]
 
 HEADER_H = 52
 FOOTER_H = 26
@@ -94,10 +101,12 @@ class Toolkit:
         with dpg.window(tag="main", no_title_bar=True, no_scrollbar=True,
                         no_move=True, no_resize=True):
             self._build_header()
+            dpg.bind_item_theme("header", T.bar_theme())
             with dpg.group(horizontal=True):
                 with dpg.child_window(width=182, height=1, border=False,
                                       no_scrollbar=True, tag="nav"):
                     self._build_nav()
+                dpg.bind_item_theme("nav", T.bar_theme())
                 with dpg.child_window(width=1, height=1, border=False,
                                       tag="body"):
                     pass
@@ -124,53 +133,78 @@ class Toolkit:
         self._hwnd = self._find_own_hwnd()
 
     def _build_header(self):
+        # 参考图那种「左边品牌名、右边一排状态芯片」的顶栏。
+        # 芯片用按钮做，绿色 = 在线，灰 = 没连上，点一下跳对应页面。
         with dpg.child_window(height=HEADER_H, border=False, no_scrollbar=True,
                               tag="header"):
-            dpg.add_spacer(height=13)
+            dpg.add_spacer(height=11)
             with dpg.group(horizontal=True):
-                dpg.add_spacer(width=22)
-                t = dpg.add_text("AZS 工具箱")
-                T.set_font(t, "bold")
-                dpg.add_spacer(width=8)
+                dpg.add_spacer(width=24)
+                brand = dpg.add_text("AZS")
+                T.set_font(brand, "bold")
+                dpg.bind_item_theme(brand, T.brand_theme())
+                dpg.add_spacer(width=5)
+                sub = dpg.add_text("工具箱")
+                T.set_font(sub, "small")
+                dpg.add_spacer(width=10)
                 t2 = dpg.add_text("v" + P.VERSION, color=T.C_TEXT_FAINT)
                 T.set_font(t2, "tiny")
-                dpg.add_spacer(width=26)
-                self.dot_game = dpg.add_text("●", color=T.C_TEXT_FAINT)
-                t3 = dpg.add_text("游戏", color=T.C_TEXT_DIM)
-                T.set_font(t3, "tiny")
-                dpg.add_spacer(width=8)
-                self.dot_brain = dpg.add_text("●", color=T.C_TEXT_FAINT)
-                t4 = dpg.add_text("数据", color=T.C_TEXT_DIM)
-                T.set_font(t4, "tiny")
-                dpg.add_spacer(width=8)
-                self.dot_overlay = dpg.add_text("●", color=T.C_TEXT_FAINT)
-                t5 = dpg.add_text("悬浮层", color=T.C_TEXT_DIM)
-                T.set_font(t5, "tiny")
-                dpg.add_spacer(width=28)
-                self.lbl_profile = dpg.add_text("", color=T.C_GOLD)
-                T.set_font(self.lbl_profile, "small")
-                dpg.add_spacer(width=26)
+
+                dpg.add_spacer(width=1, tag="hdr_fill")
+
+                self.chip_game = dpg.add_button(label="游戏", callback=self._goto,
+                                                user_data="home")
+                dpg.bind_item_theme(self.chip_game, T.pill_theme(False))
+                T.set_font(self.chip_game, "small")
+                self.chip_brain = dpg.add_button(label="数据", callback=self._goto,
+                                                 user_data="overlay")
+                dpg.bind_item_theme(self.chip_brain, T.pill_theme(False))
+                T.set_font(self.chip_brain, "small")
+                self.chip_overlay = dpg.add_button(label="悬浮层",
+                                                   callback=self._goto,
+                                                   user_data="overlay")
+                dpg.bind_item_theme(self.chip_overlay, T.pill_theme(False))
+                T.set_font(self.chip_overlay, "small")
+                dpg.add_spacer(width=14)
                 self.lbl_toast = dpg.add_text("就绪", tag="toast",
                                               color=T.C_TEXT_FAINT)
                 T.set_font(self.lbl_toast, "tiny")
-        dpg.add_separator()
+                dpg.add_spacer(width=24)
+
+    def _goto(self, sender, app_data, user_data):
+        self.switch_page(user_data)
 
     def _build_nav(self):
-        dpg.add_spacer(height=12)
+        dpg.add_spacer(height=14)
         self.nav_items = {}
-        for key, label, icon in NAV_ITEMS:
-            item = dpg.add_selectable(label="   %s   %s" % (icon, label),
-                                      tag="nav_" + key,
-                                      callback=self._on_nav, user_data=key,
-                                      height=38)
-            self.nav_items[key] = item
-        dpg.add_spacer(height=10)
+        for gi, (group, items) in enumerate(NAV_GROUPS):
+            if gi:
+                dpg.add_spacer(height=10)
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=24)
+                    dpg.add_text(group, color=T.C_TEXT_FAINT)
+                    T.set_font(dpg.last_item(), "tiny")
+                dpg.add_spacer(height=2)
+            for key, label, icon in items:
+                # 不加 group、不给固定宽度：让 selectable 铺满整栏，
+                # 选中时那块绿底才有参考图那种"整行点亮"的感觉。
+                item = dpg.add_selectable(label="   %s    %s" % (icon, label),
+                                          tag="nav_" + key,
+                                          callback=self._on_nav, user_data=key,
+                                          height=36)
+                dpg.bind_item_theme(item, T.nav_theme(False))
+                self.nav_items[key] = item
+        dpg.add_spacer(height=16)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
+            dpg.add_spacer(width=22)
+            self.lbl_profile = dpg.add_text("", color=T.C_GREEN)
+            T.set_font(self.lbl_profile, "small")
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=22)
             hint = dpg.add_text("热键", color=T.C_TEXT_FAINT)
             T.set_font(hint, "tiny")
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
+            dpg.add_spacer(width=22)
             self.lbl_nav_hotkey = dpg.add_text("", color=T.C_TEXT_DIM)
             T.set_font(self.lbl_nav_hotkey, "tiny")
 
@@ -182,8 +216,8 @@ class Toolkit:
             h = dpg.get_viewport_client_height()
         except Exception:
             return
-        # 实测顶栏 + 分隔线 + item spacing 一共吃掉 68px，再留 6px 余量
-        body_h = max(120, h - 68 - 6)
+        # 实测顶栏 + item spacing 一共吃掉 62px，再留 4px 余量
+        body_h = max(120, h - 62 - 4)
         for tag in ("nav", "body"):
             try:
                 dpg.configure_item(tag, height=body_h)
@@ -191,8 +225,11 @@ class Toolkit:
                 pass
         try:
             dw = dpg.get_viewport_client_width()
-            dpg.configure_item("nav", width=182)
-            dpg.configure_item("body", width=max(400, dw - 182 - 2))
+            nav_w = 172
+            dpg.configure_item("nav", width=nav_w)
+            dpg.configure_item("body", width=max(400, dw - nav_w))
+            # 顶栏的弹簧：把状态芯片顶到右边。算不准也没关系，差几十像素不影响用。
+            dpg.configure_item("hdr_fill", width=max(30, dw - 520))
         except Exception:
             pass
 
@@ -200,18 +237,19 @@ class Toolkit:
     def _build_pages(self):
         from azs_pages import (build_home, build_overlay, build_profile,
                                build_settings, build_spells, build_update)
-        from azs_page_builds import BuildsPage
+        from azs_page_preset import build_preset
 
         self.pages["home"] = build_home(self, "body")
         self.pages["overlay"] = build_overlay(self, "body")
         self.pages["spells"] = build_spells(self, "body")
-        self.builds_page = BuildsPage(self)
-        self.pages["builds"] = self.builds_page.build("body")
+        self.pages["preset"] = build_preset(self, "body")
         self.pages["profile"] = build_profile(self, "body")
         self.pages["update"] = build_update(self, "body")
         self.pages["settings"] = build_settings(self, "body")
         for k, tag in self.pages.items():
             dpg.configure_item(tag, show=(k == "home"))
+        # 所有页面的带边框容器统一刷成白卡（灰底上只有边框、看不出是张卡）
+        T.paint_cards("body")
 
     def switch_page(self, key):
         if key not in self.pages:
@@ -221,6 +259,9 @@ class Toolkit:
             dpg.configure_item(tag, show=(k == key))
             try:
                 dpg.set_value("nav_" + k, k == key)
+                # 选中的那项换成金色文字，未选中的压暗：靠颜色分辨"我在哪"，
+                # 而不是靠一块灰底——灰底和旁边一排按钮分不出来。
+                dpg.bind_item_theme("nav_" + k, T.nav_theme(k == key))
             except Exception:
                 pass
         self._refresh_page(key)
@@ -341,7 +382,7 @@ class Toolkit:
         self._paint_status()
         self._set_toast_text()
         for name in ("home", "overlay", "profile", "update", "settings",
-                     "spells", "builds"):
+                     "spells", "preset"):
             self._refresh_page(name)
 
     def _refresh_page(self, key):
@@ -355,11 +396,10 @@ class Toolkit:
 
     def _paint_status(self):
         st = self._status
-        for key, item in (("game", self.dot_game), ("brain", self.dot_brain),
-                          ("overlay", self.dot_overlay)):
+        for key, chip in (("game", self.chip_game), ("brain", self.chip_brain),
+                          ("overlay", self.chip_overlay)):
             try:
-                dpg.configure_item(item, color=T.C_GREEN if st.get(key)
-                                   else T.C_TEXT_FAINT)
+                dpg.bind_item_theme(chip, T.pill_theme(bool(st.get(key))))
             except Exception:
                 pass
 
@@ -378,28 +418,35 @@ class Toolkit:
 
     # ----------------------------------------------------------- 各页刷新
     def _refresh_home(self):
+        # 首页改版后有几项挪走了（游戏目录挪到设置页），这里统一用容错写法，
+        # 少一个标签不至于把整段刷新中断掉——之前版本号一直显示「—」就是这么来的。
+        def put(tag, val, color=None):
+            try:
+                dpg.set_value(tag, val)
+                if color:
+                    dpg.configure_item(tag, color=color)
+            except Exception:
+                pass
         st = self._status
-        dpg.set_value("home_game", "运行中" if st["game"] else "未运行")
-        dpg.configure_item("home_game",
-                           color=T.C_GREEN if st["game"] else T.C_TEXT_DIM)
-        dpg.set_value("home_brain", "运行中" if st["brain"] else "未运行")
-        dpg.configure_item("home_brain",
-                           color=T.C_GREEN if st["brain"] else T.C_TEXT_DIM)
-        dpg.set_value("home_overlay", "显示中" if st["overlay"] else "未运行")
-        dpg.configure_item("home_overlay",
-                           color=T.C_GREEN if st["overlay"] else T.C_TEXT_DIM)
-        dpg.set_value("home_profile", self.cfg.data["profile"]["active"])
-        dpg.configure_item("home_profile", color=T.C_GOLD)
-        dpg.set_value(self.lbl_profile,
-                      "方案：" + self.cfg.data["profile"]["active"])
+        put("home_game", "运行中" if st["game"] else "未运行",
+            T.C_GREEN if st["game"] else T.C_TEXT_DIM)
+        put("home_brain", "运行中" if st["brain"] else "未运行",
+            T.C_GREEN if st["brain"] else T.C_TEXT_DIM)
+        put("home_overlay", "显示中" if st["overlay"] else "未运行",
+            T.C_GREEN if st["overlay"] else T.C_TEXT_DIM)
+        put("home_profile", self.cfg.data["profile"]["active"], T.C_GOLD)
+        try:
+            dpg.set_value(self.lbl_profile,
+                          "方案：" + self.cfg.data["profile"]["active"])
+        except Exception:
+            pass
 
         gd = self.cfg.game_dir()
-        dpg.set_value("home_gamepath", gd or "未设置（去「设置」里选）")
-        hk = self.cfg.hotkey.get("toggle_overlay") or "—"
-        dpg.set_value("home_hotkey", hk)
-        dpg.set_value("home_source",
-                      os.path.join(gd, P.GAME_EXE_NAME) if gd else "—")
-        dpg.set_value("home_version", "v" + P.VERSION)
+        put("home_gamepath", gd or "未设置（去「设置」里选）")
+        put("home_hotkey", self.cfg.hotkey.get("toggle_overlay") or "—")
+        put("home_source",
+            os.path.basename(P.GAME_EXE_NAME) if gd else "—")
+        put("home_version", "v" + P.VERSION)
 
     def _refresh_overlay(self):
         ov = self.cfg.overlay
@@ -442,10 +489,8 @@ class Toolkit:
         if sp is not None and not sp._ready and not sp.loading:
             sp.refresh()
 
-    def _refresh_builds(self):
-        bp = getattr(self, "builds_page", None)
-        if bp is not None:
-            bp.tick()
+    def _refresh_preset(self):
+        pass
 
     def _refresh_settings(self):
         dpg.set_value("set_gamedir", self.cfg.game_dir() or "")
