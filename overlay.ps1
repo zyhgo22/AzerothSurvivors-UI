@@ -156,9 +156,20 @@ for ($i = 0; $i -lt 4; $i++) {
   $sub.ForeColor = [System.Drawing.Color]::FromArgb(170, 180, 195)
   $sub.Visible = $false
 
+  # 第三行：BOSS 战口径。打大怪只剩一个目标，群体卡会明显掉价，
+  # 这一行单独列出来，别跟副标题抢地方。
+  $boss = New-Object System.Windows.Forms.Label
+  $boss.AutoSize = $false
+  $boss.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+  $boss.Font = $script:fontSub
+  $boss.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
+  $boss.ForeColor = [System.Drawing.Color]::FromArgb(150, 163, 157)
+  $boss.Visible = $false
+
   $form.Controls.Add($main)
   $form.Controls.Add($sub)
-  $script:badges += [pscustomobject]@{ Main = $main; Sub = $sub }
+  $form.Controls.Add($boss)
+  $script:badges += [pscustomobject]@{ Main = $main; Sub = $sub; Boss = $boss }
 }
 
 $hint = New-Object System.Windows.Forms.Label
@@ -775,7 +786,7 @@ $timer.Add_Tick({
 
   if ($null -eq $state) {
     if ($script:anyShown) {
-      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false }
+      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
       $script:hint.Visible = $false
       $script:anyShown = $false
     }
@@ -788,7 +799,7 @@ $timer.Add_Tick({
     # 游戏已退出：只隐藏，不退出。以前这里 Close() 会因读到上一次运行残留的
     # status=closed 而让整个悬浮层自杀。
     if ($script:anyShown) {
-      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false }
+      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
       $script:hint.Visible = $false
       $script:anyShown = $false
     }
@@ -812,7 +823,7 @@ $timer.Add_Tick({
   }
   if (-not $show) {
     if ($script:anyShown) {
-      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false }
+      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
       $script:hint.Visible = $false
       $script:anyShown = $false
       # 徽标藏起来之后清掉缓存，下次弹出来时按当前内容重排一次
@@ -843,35 +854,50 @@ $timer.Add_Tick({
       # 预设命中：在徽标外面套一圈呼吸金边
       if ([int]$s.preset -gt 0) {
         $newGlow += New-Object System.Drawing.Rectangle `
-          (($cx - [int]($bw / 2)) - 4), ($cy - 4), ($bw + 8), ($bh + $sh + 8)
+          (($cx - [int]($bw / 2)) - 4), ($cy - 4), ($bw + 8), ($bh + $sh * 2 + 8)
       }
       $main = [string]$s.main
       $note = [string]$s.note
+      $bossLine = [string]$s.boss
+      $bossKind = [string]$s.boss_kind
       $best = [bool]$s.best
       $spec = [string]$s.spec
       # 只有内容真的变了才动控件。WinForms 每次 set Bounds/Text 都会触发重排 +
       # 重绘，而这个 form 是覆盖全屏的分层窗口，一次重绘就是整整一屏。
-      $key = "{0}|{1}|{2}|{3}|{4}|{5}|{6}" -f $cx, $cy, $main, $note, $best, ([string]$s.pct), $spec
+      $key = "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}" -f $cx, $cy, $main, $note, $best, ([string]$s.pct), $spec, $bossLine
       if ($script:badgeKey[$i] -ne $key) {
         $script:badgeKey[$i] = $key
         $b.Main.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), $cy, $bw, $bh
         $b.Sub.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), ($cy + $bh), $bw, $sh
+        $b.Boss.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), ($cy + $bh + $sh), $bw, $sh
         $b.Main.Text = $main
         $b.Sub.Text = $note
+        $b.Boss.Text = $bossLine
+        # 有首领特化 -> 荧光绿；纯群体卡打 BOSS 掉价 -> 橙；其余灰色
+        if ($bossKind -eq "tag") {
+          $b.Boss.ForeColor = [System.Drawing.Color]::FromArgb(61, 217, 127)
+        } elseif ($bossKind -eq "weak") {
+          $b.Boss.ForeColor = [System.Drawing.Color]::FromArgb(224, 168, 92)
+        } else {
+          $b.Boss.ForeColor = [System.Drawing.Color]::FromArgb(140, 152, 146)
+        }
+        if ($bossLine -eq "") { $b.Boss.Visible = $false } else { $b.Boss.Visible = $true }
         # 流派核心给一块暗金底 + 金字，跟其它卡一眼分开
         if ($spec -eq "must") {
           $b.Main.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
           $b.Sub.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
+          $b.Boss.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
           $b.Main.ForeColor = [System.Drawing.Color]::FromArgb(255, 214, 102)
         } else {
           $b.Main.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
           $b.Sub.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
+          $b.Boss.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
           $b.Main.ForeColor = Get-Color $s.pct $best
         }
       }
       if (-not $b.Main.Visible) { $b.Main.Visible = $true; $b.Sub.Visible = $true }
     } else {
-      if ($b.Main.Visible) { $b.Main.Visible = $false; $b.Sub.Visible = $false }
+      if ($b.Main.Visible) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
     }
   }
 

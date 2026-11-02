@@ -987,16 +987,19 @@ def _base_targets(subj):
         return 1.0
 
 
-def _gear_effect_ratio(ctx, subj, old_dmg, new_dmg, old_t, new_t):
-    """装备给的「+N 目标 / +X% 伤害」变化，折算成本体技能的倍率"""
+def _gear_effect_ratio(ctx, subj, old_dmg, new_dmg, old_t, new_t, solo=False):
+    """装备给的「+N 目标 / +X% 伤害」变化，折算成本体技能的倍率
+
+    solo=True（单体 BOSS 战）时目标数这一项恒为 1，只剩伤害那部分。
+    """
     b = _base_targets(subj)
-    r_t = (b + new_t) / max(1e-6, b + old_t)
+    r_t = 1.0 if solo else (b + new_t) / max(1e-6, b + old_t)
     pool = max(ctx.dmg, 1.0)
     r_d = (pool + new_dmg / 100.0) / max(1e-6, pool + old_dmg / 100.0)
     return r_t * r_d
 
 
-def _swap_gain(ctx, choice, name, subj, share):
+def _swap_gain(ctx, choice, name, subj, share, solo=False):
     """换装净收益（项链/戒指/饰品只能戴一件）
 
     三种情况：
@@ -1004,6 +1007,7 @@ def _swap_gain(ctx, choice, name, subj, share):
       2) 不同名牌、同槽位：新卡收益 - 旧装备给它的本体加成 - 旧装备自己的输出
       3) 槽位空着：就是白送，按原逻辑
 
+    solo=True 时按单体 BOSS 战算，装备上的「+N 目标」不再计入。
     返回 (pct, 说明) 或 None（交给原逻辑）。
     """
     slot = (choice.get("kind") or "").strip().lower()
@@ -1040,6 +1044,9 @@ def _swap_gain(ctx, choice, name, subj, share):
                         return float(o["targets"])
                 return 0.0
             t0, t1 = _tg(cur_rank, a), _tg(new_rank, b)
+            if solo:
+                # BOSS 战只有一个目标，装备多给的目标数全部作废
+                t0 = t1 = 0.0
             r = _gear_effect_ratio(ctx, subj, a["dmg"], b["dmg"], t0, t1)
             pct = (r - 1.0) * 100.0 * share
             return pct, "同名r%d→r%d 目标%g→%g 伤害%+g%%" % (
@@ -1068,13 +1075,16 @@ def _swap_gain(ctx, choice, name, subj, share):
             # 旧装备对「老技能」的加成没了 + 新装备只加「新技能」
             if old_zh and old_zh != subj:
                 old_share = ctx.share(old_zh) or 0.0
-                r_old = _gear_effect_ratio(ctx, old_zh, rec["dmg"], 0.0, old_t, 0.0)
+                r_old = _gear_effect_ratio(ctx, old_zh, rec["dmg"], 0.0,
+                                           old_t, 0.0, solo=solo)
                 lost_body = (1.0 - r_old) * 100.0 * old_share
             else:
                 lost_body = 0.0
             lost_self, _ln = _lost_gear_share(ctx, name)
             sh = share or 0.0
             b = _base_targets(subj)
+            if solo:
+                new_t = 0.0          # 单体 BOSS：+目标 不计
             r_new = (1.0 + new_d / 100.0 / max(ctx.dmg, 1.0)) * \
                     (1.0 + (b + new_t - b) / b * COVERAGE_SKILL) * new_echo
             pct = (r_new - 1.0) * 100.0 * sh - lost_body - lost_self * 100.0
@@ -1084,11 +1094,22 @@ def _swap_gain(ctx, choice, name, subj, share):
     return None
 
 
-def evaluate_choice(choice, ctx, abil_lookup):
+# 打 BOSS 只剩一个目标时，这些属性对输出没有任何贡献：
+#   targets  +N 目标        —— 没第二个目标可打
+#   area     +N% 范围       —— 打大怪不看范围
+# 弹射/分裂同理（bounces 走单独通道，solo 时直接丢弃）。
+SOLO_DEAD_STATS = ("targets", "area")
+
+
+def evaluate_choice(choice, ctx, abil_lookup, solo=False):
     """评估一张卡。返回 (pct, note, confident, dmg_related)
 
     pct 是「总 DPS 提升百分比」；note 给悬浮层当副标题。
     算不出来时 pct=None，交给调用方走特殊表。
+
+    solo=True 表示按「BOSS 战只有一个目标」重算：把 +目标 / +范围 /
+    弹跳分裂这些只有多目标才吃得到的收益直接抹掉，剩下的（伤害/暴击/
+    冷却/持续/回声）在单体战里照样生效。
     """
     name = (choice.get("name") or "").strip()
     text = choice.get("lines") or choice.get("text") or ""
@@ -1098,7 +1119,16 @@ def evaluate_choice(choice, ctx, abil_lookup):
 
     effects = parse_card(text)
     bounces = bounce_targets(text)
+    solo_dead = False
+    if solo:
+        raw_n = len(effects) + len(bounces)
+        effects = [e for e in effects if e.stat not in SOLO_DEAD_STATS]
+        bounces = []
+        solo_dead = raw_n > 0 and not effects and not bounces
     if not effects and not bounces:
+        if solo_dead:
+            # 这张卡给的全是「+目标 / +范围 / 弹射」—— 打单体 BOSS 就是 0
+            return 0.0, "只加目标/范围，BOSS 战无收益", True, True
         return None, "", False, False
 
     share = None
@@ -1139,7 +1169,7 @@ def evaluate_choice(choice, ctx, abil_lookup):
 
     # 装备卡（项链/戒指/饰品）只能戴一件：先按「新的 - 身上旧的」算净账。
     # 少了这一步，「r7 换 r1」会被当成白送 +105%，「换另一条项链」也只算收益不算代价。
-    swapped = _swap_gain(ctx, choice, name, subj, share) if subj else None
+    swapped = _swap_gain(ctx, choice, name, subj, share, solo=solo) if subj else None
     if swapped is not None:
         return swapped[0], swapped[1], False, True
 

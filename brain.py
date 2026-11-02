@@ -321,29 +321,71 @@ def known_spell_names():
     return [n for n in (ST.spells or {}) if (n or "").strip()]
 
 
-def static_share(name):
+def static_share(name, solo=False):
     """没有伤害统计时，用客户端技能表估一个「预计占总伤害」的比例
 
     以前这里直接返回「尚无伤害统计」，结果刚开一局 / 换了职业还没打过怪时，
     所有新技能卡都显示「无法计算」。现在改成按技能表横向比一次。
+
+    solo=True 按单体口径算（打 BOSS），否则按群体口径（刷小怪）。
     """
     if STR is None:
         return None
     try:
-        return STR.new_spell_share(name, known_spell_names())
+        return STR.new_spell_share(name, known_spell_names(), aoe_mode=not solo)
     except Exception:
         return None
 
 
-def boss_tail(name):
-    """打 BOSS 特化标记，接在说明后面"""
-    if STR is None:
-        return ""
-    try:
-        tags = STR.boss_tags(name)
-    except Exception:
-        return ""
-    return ("  打BOSS·" + "/".join(tags)) if tags else ""
+# 卡面文字里出现这些词，说明这技能对首领/精英有特化。
+# 为什么不靠 abilities.json 的 desc：那份表 152 条里只有 24 条填了描述，
+# 多重射击的 desc 直接是 None，「优先攻击首领和精英」白写在卡面上却读不到。
+BOSS_TEXT_HINTS = (
+    ("优先攻击首领和精英", "首领优先"),
+    ("优先攻击首领", "首领优先"),
+    ("对精英和首领", "对精英加伤"),
+    ("对生命值低于30%", "斩杀低血"),
+)
+
+
+def boss_tags_of(name, text=""):
+    """打 BOSS 的特化标记：静态表 + 卡面文字双路取，谁有算谁"""
+    out = []
+    if STR is not None:
+        try:
+            out.extend(STR.boss_tags(name))
+        except Exception:
+            pass
+    blob = text or ""
+    for word, tag in BOSS_TEXT_HINTS:
+        if word in blob and tag not in out:
+            out.append(tag)
+    return out[:2]
+
+
+def targets_of(name, text=""):
+    """一次打几个目标。
+
+    abilities.json 大半没填 targets，spell_table 里的计数字段叫 cnt，
+    两边都拿不到时只能从卡面文字读（「最近的3个敌人」「范围内的所有敌人」）。
+    这个数是「小怪战」的口径；打 BOSS 时会强制成 1。
+    """
+    t = 0.0
+    ab = ability_by_name(name) or {}
+    for v in (ab.get("targets"), (STR.row_of(name) or {}).get("cnt") if STR else None):
+        try:
+            t = max(t, float(v or 0))
+        except (TypeError, ValueError):
+            pass
+    if t > 0:
+        return t
+    m = re.search(r"最近的?\s*(\d+)\s*个敌人", text) or \
+        re.search(r"(\d+)\s*个敌人", text)
+    if m:
+        return float(m.group(1))
+    if re.search(r"所有敌人|内所有|范围内的敌人", text):
+        return 3.0          # 范围技能：小怪聚堆时按 3 个估
+    return 1.0
 
 
 def _soft_pct(share):
@@ -360,11 +402,14 @@ def _soft_pct(share):
     return 30.0 * (1.0 - math.exp(-3.0 * sh))
 
 
-def estimate_new_spell(choice):
+def estimate_new_spell(choice, solo=False):
     """新技能：用卡面伤害数值 + 技能表冷却，粗估 DPS 占比
 
     卡面伤害是该技能当前等级的值，成长节奏因人而异，所以结果只能当参考
     （界面显示 ≈），并封顶 30%，避免压过所有强化卡。
+
+    solo=True 时按「BOSS 战只有一个目标」算：目标数强制为 1，
+    所以带溅射/多目标的技能在 BOSS 战里数字会明显低于小怪战。
     """
     text = choice.get("text") or choice.get("lines") or ""
     # 卡名带「新法术：」前缀，查技能表前必须去掉
@@ -382,18 +427,20 @@ def estimate_new_spell(choice):
             MODEL.TOOLTIP_DOT[name] = {"dur": dur, "ticks": float(m.group(2))}
             ctx = build_ctx()
             d, cd, tgt, cap, _kind = MODEL.dot_params(name, ctx)
+            if solo:
+                tgt = 1.0
             stacks = min(d / max(0.2, cd), cap)
             dps = total / max(0.5, d) * tgt * stacks
             if tdps <= 1.0:
-                sh = static_share(name)
+                sh = static_share(name, solo=solo)
                 if sh is None:
                     return None, "尚无伤害统计", False
                 return (_soft_pct(sh),
-                        "新DoT %.0f伤/%.0fs×%g目标  按技能表估%s"
-                        % (total, d, tgt, boss_tail(name)), False)
+                        "新DoT %.0f伤/%.0fs×%g目标 按技能表估"
+                        % (total, d, tgt), False)
             pct = min(30.0, dps / tdps * 100.0)
-            return pct, "新DoT %.0f伤/%.0fs×%g目标×%.1f层%s" % (
-                total, d, tgt, stacks, boss_tail(name)), False
+            return pct, "新DoT %.0f伤/%.0fs×%g目标×%.1f层" % (
+                total, d, tgt, stacks), False
 
     # 「造成X点」「受到X点」都要认
     hits = re.findall(r"(?:各)?(?:造成|受到)\s*(\d+(?:\.\d+)?)\s*点", text)
@@ -409,7 +456,9 @@ def estimate_new_spell(choice):
     if mt:
         total = float(mt.group(1))
 
-    targets = float(ab.get("targets") or 1)
+    targets = targets_of(name, text)
+    if solo:
+        targets = 1.0            # BOSS 战只剩一个目标
     bonus = 0.0
     for mb in re.finditer(r"\+\s*(\d+(?:\.\d+)?)\s*%\s*伤害", text):
         bonus = max(bonus, float(mb.group(1)))
@@ -420,18 +469,17 @@ def estimate_new_spell(choice):
     dps = dmg * targets / max(0.3, cd * cd_stat) * (1.0 + bonus / 100.0)
 
     if tdps <= 1.0:
-        sh = static_share(name)
+        sh = static_share(name, solo=solo)
         if sh is None:
             return None, "尚无伤害统计", False
         return (_soft_pct(sh),
-                "新技能 %g×%g目标/%.1fs 按技能表估%s"
-                % (dmg, targets, cd * cd_stat, boss_tail(name)), False)
+                "新技能 %g×%g目标/%.1fs 按技能表估"
+                % (dmg, targets, cd * cd_stat), False)
     pct = dps / tdps * 100.0
     capped = pct > 30.0
     pct = min(30.0, pct)
-    note = "新技能 %g×%g目标/%.1fs%s%s" % (dmg, targets, cd * cd_stat,
-                                           ("+%.0f%%" % bonus) if bonus else "",
-                                           boss_tail(name))
+    note = "新技能 %g×%g目标/%.1fs%s" % (dmg, targets, cd * cd_stat,
+                                          ("+%.0f%%" % bonus) if bonus else "")
     if capped:
         note += " 封顶"
     return pct, note, False
@@ -452,7 +500,7 @@ def to_num(s):
         return 1.0
 
 
-def estimate_killproc(choice):
+def estimate_killproc(choice, solo=False):
     """击杀/周期触发型技能（救赎、灵魂之火）：按触发频率估算，而不是冷却"""
     text = choice.get("text") or ""
     name = (choice.get("name") or "").strip()
@@ -461,7 +509,9 @@ def estimate_killproc(choice):
         return None, "特殊效果·无伤害数字", False
     per_hit = max(float(h) for h in hits)
     ab = ability_by_name(name) or {}
-    targets = float(ab.get("targets") or 1)
+    targets = targets_of(name, text)
+    if solo:
+        targets = 1.0
 
     freq = None
     m = re.search(r"每秒最多\s*" + NUM_RE + r"\s*次", text)
@@ -476,14 +526,14 @@ def estimate_killproc(choice):
 
     tdps = total_dps()
     if tdps <= 1.0:
-        sh = static_share(name)
+        sh = static_share(name, solo=solo)
         if sh is None:
             return None, "尚无伤害统计", False
         return (_soft_pct(sh),
-                "击杀触发 %g伤×%.1f/s 按技能表估%s"
-                % (per_hit, freq, boss_tail(name)), False)
+                "击杀触发 %g伤×%.1f/s 按技能表估"
+                % (per_hit, freq), False)
     pct = min(30.0, per_hit * targets * freq / tdps * 100.0)
-    return pct, "击杀触发·%g伤害×%.1f/s%s" % (per_hit, freq, boss_tail(name)), False
+    return pct, "击杀触发·%g伤害×%.1f/s" % (per_hit, freq), False
 
 
 def build_ctx():
@@ -510,8 +560,11 @@ def build_ctx():
     )
 
 
-def evaluate(choice):
-    """返回 (pct, note, confident)"""
+def evaluate(choice, solo=False):
+    """返回 (pct, note, confident)
+
+    solo=True：按「BOSS 战只有一个目标」重算（+目标/+范围/弹射都不算数）。
+    """
     name = (choice.get("name") or "").strip()
     lines = choice.get("lines") or ""
     text = choice.get("text") or lines
@@ -520,20 +573,21 @@ def evaluate(choice):
     # 0) 新技能：卡面上的 +X% 是它自己的强度，不能当成全局增益
     if kind == "new":
         if re.search(r"你击杀|击杀的敌人|击杀会|击中时|碎片|每秒最多\s*\d+", text):
-            pct, note, conf = estimate_killproc(choice)
+            pct, note, conf = estimate_killproc(choice, solo=solo)
             if pct is not None:
                 return pct, note, conf
-        pct, note, conf = estimate_new_spell(choice)
+        pct, note, conf = estimate_new_spell(choice, solo=solo)
         if pct is None:
             return model_special(name, text)
         return pct, note, conf
 
-    pct, note, conf, dmg_related = MODEL.evaluate_choice(choice, build_ctx(), ability_by_name)
+    pct, note, conf, dmg_related = MODEL.evaluate_choice(
+        choice, build_ctx(), ability_by_name, solo=solo)
 
     if pct is None:
         # 「你击杀的敌人有12%几率爆发」这类击杀触发卡：按触发频率估
         if re.search(r"你击杀|击杀的敌人|击杀会|爆发", text):
-            kp, kn, kc = estimate_killproc(choice)
+            kp, kn, kc = estimate_killproc(choice, solo=solo)
             if kp is not None:
                 return kp, kn, kc
         # 模型解析不出数值：走特殊机制表
@@ -561,6 +615,47 @@ def fit_note(note, max_px=262):
         if w > max_px:
             return note[:i] + "…"
     return note
+
+
+BOSS_TAG_CN = {
+    "首领优先": "首领优先",
+    "对精英加伤": "对精英加伤",
+    "斩杀": "斩杀低血",
+    "碎片爆发": "碎片爆发",
+}
+
+
+def boss_line(r):
+    """徽标第三行：这张卡换到「单体 BOSS 战」还值多少
+
+    BOSS 战只剩一个目标，所以两张卡在小怪战里都是 +30%，打大怪可能一个
+    是 +30%、一个是 0%。这一行就是为了把这个差距摆到眼前。
+
+    返回 (文案, 类型)，类型给悬浮层挑颜色：
+      tag  —— 有首领特化（优先打首领 / 对精英加伤 / 斩杀），荧光绿
+      weak —— 群体卡，打单体掉价明显，橙色警告
+      ''   —— 普通卡，灰色
+    """
+    name = r.get("name") or ""
+    tags = [BOSS_TAG_CN.get(t, t) for t in boss_tags_of(name, r.get("text") or "")]
+
+    bp = r.get("boss_pct")
+    gp = r.get("pct")
+    if bp is None:
+        txt = "BOSS ?"
+        kind = ""
+    elif bp <= 0.05:
+        txt = "BOSS 0%·只吃多目标"
+        kind = "weak"
+    else:
+        txt = ("BOSS +%.1f%%" if r.get("confident") else "BOSS ≈+%.1f%%") % bp
+        # 比小怪战低 3 个点以上 = 群体卡，进 BOSS 战明显掉价
+        kind = "weak" if (gp is not None and bp < gp - 3.0) else ""
+
+    if tags:
+        txt += "·" + "/".join(tags)
+        kind = "tag"
+    return fit_note(txt, max_px=214), kind
 
 
 def note_unknown(choice, note):
@@ -791,11 +886,20 @@ def build_state():
             note = fit_note(note)
             if pct is None:
                 note_unknown(ch, note)
+            # 同一张卡再按「BOSS 战只有一个目标」算一遍：
+            # 小怪战里 +目标/+范围/弹射 值钱，打大怪时这些全部作废，
+            # 两套数字差得多的通常是纯群体卡。
+            try:
+                bpct, _bnote, _bconf = evaluate(ch, solo=True)
+            except Exception:
+                bpct = None
             results.append({
                 "name": ch.get("name", ""),
                 "rarity": ch.get("rarityName", ""),
                 "kind": ch.get("kind", ""),
+                "text": ch.get("text") or ch.get("lines") or "",
                 "pct": None if pct is None else round(pct, 1),
+                "boss_pct": None if bpct is None else round(bpct, 1),
                 "note": note,
                 "confident": conf,
             })
@@ -843,6 +947,7 @@ def build_state():
                 r["main"] = ("★ 预设 " if has_pre else "★ 流派 ") + r["main"]
             elif r["best"]:
                 r["main"] = "★ " + r["main"]
+            r["boss"], r["boss_kind"] = boss_line(r)
             slots.append(r)
 
     # 为什么没显示：出问题时看一眼 brain.err 就知道卡在哪一步，

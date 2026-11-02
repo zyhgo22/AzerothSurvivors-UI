@@ -167,22 +167,26 @@ def rel(name, base=None, spell_names=None):
     return round(solo(name) / max(1e-6, b) * 100.0, 0)
 
 
-def new_spell_share(name, spell_names):
+def new_spell_share(name, spell_names, aoe_mode=False):
     """新技能卡的「预计占你总伤害多少」（0~1）
 
-    假设你已经学到的技能按静态单体强度贡献伤害，新技能加进来后按比例分。
+    假设你已经学到的技能按静态强度贡献伤害，新技能加进来后按比例分。
     没有已学技能时给 0.15 —— 比「算不出」有用，徽标会标成估算。
+
+    aoe_mode=True 用小怪战口径（群体指数：目标数 / 半径都算进去）；
+    False 用单体口径（打 BOSS 只剩一个目标）。
     """
-    v = solo(name)
+    f = aoe if aoe_mode else solo
+    v = f(name)
     if v <= 0:
         return 0.0
     tot = 0.0
     for n in spell_names or []:
-        tot += solo(n)
+        tot += f(n)
     if tot <= 0:
         # 一个技能都还没学到：拿全表的中位数当"两个普通技能"，
         # 这样强技能和弱技能至少能拉开差距，而不是三张牌都写 15%
-        vals = [solo(r) for r in _TABLE if solo(r) > 0]
+        vals = [f(r) for r in _TABLE if f(r) > 0]
         if vals:
             vals.sort()
             med = vals[len(vals) // 2]

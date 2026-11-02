@@ -1,13 +1,11 @@
 {
- "version": "1.2.0",
- "released": "2026-11-02 11:55",
+ "version": "1.2.1",
+ "released": "2026-11-02 12:35",
  "notes": [
-  "界面整个换了一套：黑底+荧光绿，左侧导航改分组列表，选中项整行铺绿底",
-  "顶栏改成 AZS 品牌名 + 三个状态胶囊（游戏/大脑/悬浮层），点一下跳到对应页",
-  "所有内容改成「卡片+列表行」：卡片左上标题+灰色小字，下面分割线，再下面三列列表行",
-  "修掉卡片右边缘跑到窗口外的老毛病：width=-1 在横向 group 里按整页宽算，改用表格+单元格内边距",
-  "技能数值页的「应用/恢复」按钮挪到卡片顶部，卡片再矮也点得到",
-  "字体从两档加到五档（12/13/15/19/27），粗体换微软雅黑 Bold，标题正文有字重差"
+  "选卡徽标加了第三行「BOSS 战提升」：绿色=对首领有特化，橙色=群体卡打单体缩水，灰色=普通",
+  "修掉「首领优先」从来没生效过：abilities.json 152 条技能只有 24 条填了 desc，多重射击的 desc 是空的，卡面写着也读不到。现在静态表+卡面文字双路识别",
+  "修掉「打小怪和打BOSS算出同一个数」：abilities.json 的 targets 大面积缺失，多重射击被当成1目标，54伤×3目标算成×1。现在退回技能表 cnt，再不行从卡面文字读",
+  "副标题不再重复写「打BOSS·xxx」，位置腾给真正的说明"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -35,8 +33,8 @@
    "size": 10475
   },
   "azs_model.py": {
-   "sha256": "42cb111855a194dd0c98c96067aad4ec9d84d61687b639c8bb7f7837252d0ff7",
-   "size": 46788
+   "sha256": "cbd5fc51dffb4592671dd76dc5f281288fe3f83f6fb8c91803ca83bc98fda445",
+   "size": 48336
   },
   "azs_page_builds.py": {
    "sha256": "c24c1d773fb412d3e353e9f46faa585d061f36aea3c6015629c40586a2812652",
@@ -59,7 +57,7 @@
    "size": 37987
   },
   "azs_paths.py": {
-   "sha256": "98a074ac61919775019b8db633b035cd712474b2eac441e5b7617358c7b03a1b",
+   "sha256": "622e009c4347d9ba95d9544e77818d6be853d4499b7529a33c8a3ea59fe8b183",
    "size": 4659
   },
   "azs_proc.py": {
@@ -67,8 +65,8 @@
    "size": 12798
   },
   "azs_strength.py": {
-   "sha256": "297a59c0dcd2817ca138e6daf27cf3a5934a463ed09630428bdd258d2ad1f510",
-   "size": 7123
+   "sha256": "c44943a8a442fd621719a3c2b807787e5217ab0da570dd13d459b2bbe213c1ad",
+   "size": 7309
   },
   "azs_theme.py": {
    "sha256": "e6b9cb8dc507def7276216a65cf9f8de19ca0cfdf8dfac6bc423340a91888bb4",
@@ -87,8 +85,8 @@
    "size": 13286
   },
   "brain.py": {
-   "sha256": "f6b9e911f78c2db9137217a4b87ec66601aa7db7427e6d501771177195c65b26",
-   "size": 43462
+   "sha256": "037c8eb3bd00ffcd000ccc5580e8f1127a725bacabbce2b7eafd2324736cb959",
+   "size": 46274
   },
   "builds.json": {
    "sha256": "bbe4b7225563e04989ce0803204bd3927622c9947a03f8ce75f4764aad94d8c4",
@@ -107,8 +105,8 @@
    "size": 599
   },
   "overlay.ps1": {
-   "sha256": "6de039f108f745a6766e1ca4507d63d65e32526d5d7644323d6ec561c9b9fdf7",
-   "size": 41198
+   "sha256": "991d8b526a7ade25dfbedc0dae7d5847e2ea08fb63a11874ec6c92139e2d7363",
+   "size": 41798
   },
   "rec_offsets.json": {
    "sha256": "6232f9e84981447cd25b1c3772d976818e6c1f9bfd1654a22a8be344f6455632",
@@ -1903,8 +1901,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "cd62e3ba99c13ea8bb21edb99bc84ff5562ba4ef1afe81f83a142a870e4bf2f5",
-   "size": 21918
+   "sha256": "90209a18ba301ea5af2f67a635c14854c50ba541842b37bf0e2e4d5acdb63ee2",
+   "size": 23491
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",
