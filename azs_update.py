@@ -131,6 +131,14 @@ def check(manifest_url, timeout=20, alts=None):
         res["tried"] = urls.index(u) + 1
         res["total_urls"] = len(urls)
         res["all_versions"] = {u: r.get("version") for u, r in results}
+        # 下载时挨个镜像试：清单是新的，文件却可能还停在镜像的旧缓存里，
+        # 哈希对不上就换下一家，比让更新直接失败强。
+        bases = [res.get("base") or ""]
+        for _u, r in results:
+            b = r.get("base") or ""
+            if r.get("ok") and b and b not in bases:
+                bases.append(b)
+        res["manifest"]["bases"] = [b for b in bases if b]
         return res
 
     last = results[-1][1] if results else {"ok": False, "error": "检查失败"}
@@ -183,6 +191,7 @@ def _check_one(manifest_url, timeout=20):
 def plan_download(manifest, local_version):
     """列出需要下载的文件（对比本地 sha256）。"""
     base = manifest.get("base") or ""
+    bases = [b for b in (manifest.get("bases") or []) if b] or ([base] if base else [])
     todo = []
     for name, info in (manifest.get("files") or {}).items():
         name = name.replace("\\", "/").lstrip("./")
@@ -198,8 +207,10 @@ def plan_download(manifest, local_version):
         if want and os.path.isfile(path):
             if _sha256_file(path) == want:
                 continue        # 本地已经一样，跳过
-        todo.append({"name": name, "url": urllib.parse.urljoin(base, name),
-                     "sha256": want, "size": (info or {}).get("size") or 0})
+        urls = [urllib.parse.urljoin(b, name) for b in bases]
+        todo.append({"name": name, "url": urls[0] if urls else "",
+                     "urls": urls, "sha256": want,
+                     "size": (info or {}).get("size") or 0})
     return todo
 
 
@@ -215,6 +226,30 @@ def _sha256_bytes(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def _match_hash(data, want):
+    """返回和清单 sha256 对得上的字节；对不上返回 None。
+
+    为什么要三种写法都试：GitHub 的 raw 发的是仓库里那份（LF），
+    而作者机器上的文件是 CRLF（git 的 autocrlf 把换行换回去了）。
+    两边字节不同，哈希自然不同 —— 以前一律判「文件没传完」，更新直接失败。
+
+    这里按「原样 / 换成 LF / 换成 CRLF」依次比，哪个对得上就存哪个。
+    优先存清单认定的那一份：作者是 CRLF，客户端也就落 CRLF，
+    .cmd 这种只认 CRLF 的文件不会因为换行丢了而跑不起来。
+    """
+    if not want:
+        return data
+    if _sha256_bytes(data) == want:
+        return data
+    lf = data.replace(b"\r\n", b"\n")
+    if _sha256_bytes(lf) == want:
+        return lf
+    crlf = lf.replace(b"\n", b"\r\n")
+    if _sha256_bytes(crlf) == want:
+        return crlf
+    return None
+
+
 def download(manifest, local_version, staged_dir, progress=None, log=None):
     """把需要的文件下到 staged_dir，逐个校验。返回 (ok, 错误信息, 文件列表)。"""
     todo = plan_download(manifest, local_version)
@@ -226,22 +261,31 @@ def download(manifest, local_version, staged_dir, progress=None, log=None):
         name = item["name"]
         if log:
             log("下载 %s" % name)
-        # 镜像站第一次取某个文件时是「回源」，慢起来能到二十几秒，
-        # 一次超时就判失败太脆了 —— 给它第二次机会。
+        # 两个坑一起绕：
+        #   · 镜像站第一次取某个文件要回源，慢起来能到二十几秒，一次超时不算数；
+        #   · 镜像的缓存可能还停在上一版，下回来的字节对不上哈希 —— 换下一家。
         data = None
-        last_err = None
-        for attempt in range(2):
-            try:
-                data = http_get(item["url"], timeout=25 if attempt == 0 else 45)
+        last_err = ""
+        urls = item.get("urls") or ([item["url"]] if item.get("url") else [])
+        for url in urls:
+            for attempt in range(2):
+                try:
+                    raw = http_get(url, timeout=25 if attempt == 0 else 45)
+                except Exception as e:
+                    last_err = str(e)
+                    if attempt == 0:
+                        time.sleep(1.2)
+                    continue
+                got = _match_hash(raw, item["sha256"])
+                if got is not None:
+                    data = got
+                    break
+                last_err = "内容对不上清单（镜像缓存可能是旧的）"
                 break
-            except Exception as e:
-                last_err = e
-                if attempt == 0:
-                    time.sleep(1.5)
+            if data is not None:
+                break
         if data is None:
             return False, "下载 %s 失败：%s" % (name, last_err), []
-        if item["sha256"] and _sha256_bytes(data) != item["sha256"]:
-            return False, "%s 校验失败（文件可能没传完）" % name, []
         out = os.path.join(staged_dir, *name.split("/"))
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, "wb") as fh:
