@@ -60,9 +60,12 @@ RAW_MANIFEST = "https://raw.githubusercontent.com/%s/%s/latest.json" % (
     GITHUB_REPO, GITHUB_BRANCH)
 
 # 排在前面的优先用。这几个都实测过能取到 latest.json。
+# 2026-11-04：ghproxy.net 的缓存明显滞后（1.2.4 推上去半小时还在发 1.2.2），
+# 所以把 gh-proxy.com 提到第一位。真正的保险在 azs_update.check：
+# 它会把所有地址都拉一遍，取版本号最高的那份清单，不认「第一个连通的」。
 MIRROR_PREFIXES = [
-    "https://ghproxy.net/",
     "https://gh-proxy.com/",
+    "https://ghproxy.net/",
 ]
 
 DEFAULT_MANIFEST_URL = MIRROR_PREFIXES[0] + RAW_MANIFEST

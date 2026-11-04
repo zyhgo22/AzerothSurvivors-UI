@@ -95,8 +95,12 @@ def is_newer(remote, local):
 def check(manifest_url, timeout=20, alts=None):
     """拉清单并比对版本。返回 dict，永远不抛异常（失败信息放 error）。
 
-    第一个地址不通时会依次试 alts 里的备选地址 —— GitHub 直连在国内
-    时通时不通，多留几条路比让用户自己改配置现实。
+    所有地址并行拉一遍，取「版本号最高的那份清单」，而不是「第一个连通的」。
+
+    以前是顺序取第一个成功的，结果被镜像站的缓存坑住：1.2.4 推上去半小时，
+    ghproxy 还在发 1.2.2 的旧清单，客户端于是认为「已是最新」，
+    作者那边则表现为「你们怎么都不更新」。并行的代价只是多几次 HEAD 级别的
+    小请求，比让人等半小时靠谱。
     """
     urls = []
     for u in [manifest_url] + list(alts or []):
@@ -108,16 +112,28 @@ def check(manifest_url, timeout=20, alts=None):
                 "base": "", "version": "", "notes": [], "released": "",
                 "files": {}}
 
-    last = None
-    for i, u in enumerate(urls):
-        res = _check_one(u, timeout)
-        if res.get("ok"):
-            res["used_url"] = u
-            res["tried"] = i + 1
-            res["total_urls"] = len(urls)
-            return res
-        last = res
-    last = last or {"ok": False, "error": "检查失败"}
+    results = []
+    if len(urls) == 1:
+        results = [(urls[0], _check_one(urls[0], timeout))]
+    else:
+        try:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(4, len(urls))) as ex:
+                results = list(zip(urls, ex.map(
+                    lambda u: _check_one(u, timeout), urls)))
+        except Exception:
+            results = [(u, _check_one(u, timeout)) for u in urls]
+
+    oks = [(u, r) for u, r in results if r.get("ok")]
+    if oks:
+        u, res = max(oks, key=lambda p: parse_version(p[1].get("version")))
+        res["used_url"] = u
+        res["tried"] = urls.index(u) + 1
+        res["total_urls"] = len(urls)
+        res["all_versions"] = {u: r.get("version") for u, r in results}
+        return res
+
+    last = results[-1][1] if results else {"ok": False, "error": "检查失败"}
     last["total_urls"] = len(urls)
     if len(urls) > 1:
         last["error"] = "%s（%d 个地址都试过了）" % (last.get("error") or "", len(urls))
@@ -210,10 +226,20 @@ def download(manifest, local_version, staged_dir, progress=None, log=None):
         name = item["name"]
         if log:
             log("下载 %s" % name)
-        try:
-            data = http_get(item["url"], progress=None)
-        except Exception as e:
-            return False, "下载 %s 失败：%s" % (name, e), []
+        # 镜像站第一次取某个文件时是「回源」，慢起来能到二十几秒，
+        # 一次超时就判失败太脆了 —— 给它第二次机会。
+        data = None
+        last_err = None
+        for attempt in range(2):
+            try:
+                data = http_get(item["url"], timeout=25 if attempt == 0 else 45)
+                break
+            except Exception as e:
+                last_err = e
+                if attempt == 0:
+                    time.sleep(1.5)
+        if data is None:
+            return False, "下载 %s 失败：%s" % (name, last_err), []
         if item["sha256"] and _sha256_bytes(data) != item["sha256"]:
             return False, "%s 校验失败（文件可能没传完）" % name, []
         out = os.path.join(staged_dir, *name.split("/"))

@@ -1,11 +1,11 @@
 {
  "version": "1.2.4",
- "released": "2026-11-04 15:14",
+ "released": "2026-11-04 15:22",
  "notes": [
   "修：升级界面伤害提示整屏消失（前台判定改成按遮挡面积）",
   "统计框切走前台时冻结上一帧，不再清零",
   "工具箱按钮改为随状态显示 隐藏/显示悬浮层",
-  "hide 日志写清原因"
+  "更新检查改为多镜像并行、取最高版本，避开镜像缓存"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -21,8 +21,8 @@
    "size": 6372
   },
   "azs_config.py": {
-   "sha256": "5ef063ab2150c52e53c48cf5ece90e63217df4bec20ff2c70434293824b42e60",
-   "size": 18765
+   "sha256": "0fc4fcd8f261d05787aeda8ead13a030956a4c41779dae653226298f923d0ac2",
+   "size": 19055
   },
   "azs_dialog.py": {
    "sha256": "d9bd14a3a06c292086529b3e5871dca0f3b541af697a2f318235dd93ec8ce811",
@@ -85,8 +85,8 @@
    "size": 24325
   },
   "azs_update.py": {
-   "sha256": "83474aeb455d24524d408970366b0ce5d81b57e388e4d0c80f5fa08e6d9a08f4",
-   "size": 13286
+   "sha256": "e149f14c8b4ee6e21ec7d883e19316b8eed8f685e427622e2c8c51ccd0a2fec7",
+   "size": 14577
   },
   "brain.py": {
    "sha256": "ad27c8257f1268cfdd6aa3073d91e7c5d4a265153fdf3fa81edfa1b64bb00101",
@@ -185,8 +185,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "087b3a1f3665da29d9b2850da7692916a18c3cb4074b803456c0bba432fbc90a",
-   "size": 30189
+   "sha256": "cea2d5589431959036196bd1deadfc9c8615fbfa2f31c2830bc1de6ee705b488",
+   "size": 30688
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",
