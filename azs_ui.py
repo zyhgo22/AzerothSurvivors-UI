@@ -475,6 +475,15 @@ class Toolkit:
                       "当前：" + ("显示" if vis else "隐藏"))
         dpg.configure_item("ov_visible_state",
                            color=T.C_GREEN if vis else T.C_TEXT_DIM)
+        # 按钮直接写「按下去会发生什么」。以前是「立即显示 / 隐藏」，
+        # 看不出当前是开还是关 —— 徽标不见了的人去点它，反而把它关掉，
+        # 越修越没有（1.2.3 用户实际踩过这个坑）。
+        try:
+            dpg.configure_item(
+                "ov_flash",
+                label=("   隐 藏 悬 浮 层   " if vis else "   显 示 悬 浮 层   "))
+        except Exception:
+            pass
         hk = self.cfg.hotkey
         dpg.set_value("ov_hotkey", hk.get("toggle_overlay") or "F8")
         dpg.set_value("ov_hotkey_panel", hk.get("toggle_panel") or "F9")

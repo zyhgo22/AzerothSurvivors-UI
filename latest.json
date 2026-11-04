@@ -1,13 +1,11 @@
 {
- "version": "1.2.2",
- "released": "2026-11-04 12:39",
+ "version": "1.2.4",
+ "released": "2026-11-04 15:14",
  "notes": [
-  "选卡提示改成四行：综合评价（字号最大）/ 全局增伤 / BOSS 增伤 / 流派归属；不在预设里但收益 ≥8% 也给「★ 值得一拿」",
-  "没有伤害榜的卡不再一律按 3% 估：按卡面作用域分全局 / 宠物占比 / 点名技能，宠物卡按实际输出占比折算（支配恶魔 → +9.2%）",
-  "点名技能查不到数据时用面板权重估占比（伤害×目标数÷冷却×强度），提示里「占」是实测、「估」是估算",
-  "悬浮层认游戏窗口为从属窗口：游戏最小化 / 切后台自动收起，拖动缩放跟着对齐，不再是一张到处贴的图",
-  "工具箱七个页面重排 + 游戏内流派面板与伤害统计框换近黑薄荷配色；修掉强度榜表头压行、卡片内容被裁、勾选框溢出",
-  "增量包从 2.3 MB 瘦到几十 KB：不再把 Python 运行时算进更新文件"
+  "修：升级界面伤害提示整屏消失（前台判定改成按遮挡面积）",
+  "统计框切走前台时冻结上一帧，不再清零",
+  "工具箱按钮改为随状态显示 隐藏/显示悬浮层",
+  "hide 日志写清原因"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -34,9 +32,13 @@
    "sha256": "737a1fe3a6db7d0a6c60ef23418718cec4e93697331a84939b7b7387fd4af43d",
    "size": 10475
   },
+  "azs_luck.py": {
+   "sha256": "7698e824f929aeaf603bdb2910bb9ce3499c4ad2bbd07dea9770b0cb168ac3d1",
+   "size": 2975
+  },
   "azs_model.py": {
-   "sha256": "05bf8550243994158fc1ea894b8c4a4abf50fcbe604a84a5ea5a4016e2c6cfd0",
-   "size": 55163
+   "sha256": "782c3f5a767d44dd3e5ef63fd0f2ecf3123eb7c5c60a368e961a54ecc70dd28f",
+   "size": 58315
   },
   "azs_page_builds.py": {
    "sha256": "c24c1d773fb412d3e353e9f46faa585d061f36aea3c6015629c40586a2812652",
@@ -55,11 +57,11 @@
    "size": 14383
   },
   "azs_pages.py": {
-   "sha256": "257dfae073344e6a588234122dd429580516b733bdd808e2f33b73ea2f3bce8f",
-   "size": 43269
+   "sha256": "ed1bc6cdc45aaf49234bedd50b16523a29339fbc8375b6483e2c1324c9759b63",
+   "size": 43279
   },
   "azs_paths.py": {
-   "sha256": "692f625b2664efada7d92bcbca35b5ea85006efca4e7c2ccff5d9695b1f96e0a",
+   "sha256": "288b3d6272aba0e5379019bbcfb7562ca93b9749108f8f6ba6878627dede5655",
    "size": 4793
   },
   "azs_proc.py": {
@@ -79,16 +81,16 @@
    "size": 3373
   },
   "azs_ui.py": {
-   "sha256": "4df97b8b32cb3782ab3000e7756fbae14cc10c54ccb678bcae2d21bfee3d050c",
-   "size": 23838
+   "sha256": "eda28226bf6d8a72765e90c3e31258393c9cc5f2035216fe334f9201b6b4cfd5",
+   "size": 24325
   },
   "azs_update.py": {
    "sha256": "83474aeb455d24524d408970366b0ce5d81b57e388e4d0c80f5fa08e6d9a08f4",
    "size": 13286
   },
   "brain.py": {
-   "sha256": "825c7a5cceefae0f0387eedbd833be61c421e9f9832f5e0fd3d50af9532f6124",
-   "size": 48726
+   "sha256": "ad27c8257f1268cfdd6aa3073d91e7c5d4a265153fdf3fa81edfa1b64bb00101",
+   "size": 51037
   },
   "builds.json": {
    "sha256": "bbe4b7225563e04989ce0803204bd3927622c9947a03f8ce75f4764aad94d8c4",
@@ -107,8 +109,8 @@
    "size": 599
   },
   "overlay.ps1": {
-   "sha256": "18867bfd2355cb3409c558f813aa432637d5d3259e961aed8859a70066db649b",
-   "size": 49305
+   "sha256": "ad2347a979077459c8fbe9ada23a710eabff81fc876ba1cf202aef5da1d5debf",
+   "size": 52224
   },
   "rec_offsets.json": {
    "sha256": "6232f9e84981447cd25b1c3772d976818e6c1f9bfd1654a22a8be344f6455632",
@@ -183,8 +185,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "e7ac8c160aa2e853d692e63406f33df9db1a1b1703a42dc8577f58cce58e6ae2",
-   "size": 26057
+   "sha256": "087b3a1f3665da29d9b2850da7692916a18c3cb4074b803456c0bba432fbc90a",
+   "size": 30189
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",

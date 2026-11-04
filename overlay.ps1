@@ -65,11 +65,12 @@ $form.Text = "AZS DpsGain"
 # 以前这个覆盖层是「全屏置顶贴纸」：不管游戏是最小化、还是切到别的程序，
 # 它都赖在最上面。现在把它认成游戏窗口的从属窗口（owner）：
 #   * 游戏最小化 -> 它跟着一起收
-#   * 游戏被切到后台 -> 直接不画（用户看的是别的程序，别挡着）
+#   * 游戏被别的窗口彻底盖住 -> 不画（用户看的是别的程序，别挡着）
 #   * 游戏窗口移动/缩放 -> 每一帧对齐，徽标永远贴着卡牌
 $script:gameHwnd = [IntPtr]::Zero
 $script:onlyForeground = $true
 $script:lastRect = $null
+$script:gameGone = $false    # 进程都找不到了（游戏退出），统计框要收掉
 # 开发用：AZS_OVERLAY_DEV=1 时不检查游戏窗口，直接画（方便截图看排版）
 $script:devMode = ($env:AZS_OVERLAY_DEV -eq "1")
 
@@ -83,11 +84,15 @@ function Find-GameWindow {
 }
 
 function Sync-GameWindow {
-  # 返回 $true = 游戏在前台且没最小化，可以画东西
+  # 返回 $true = 游戏还在、没最小化、也没被别的窗口盖住，可以画东西
   if ($script:devMode) { return $true }
   if ($script:gameHwnd -eq [IntPtr]::Zero -or -not [AZS.Win32]::IsWindow($script:gameHwnd)) {
     $script:gameHwnd = Find-GameWindow
-    if ($script:gameHwnd -eq [IntPtr]::Zero) { return $false }
+    if ($script:gameHwnd -eq [IntPtr]::Zero) {
+      $script:gameGone = $true
+      return $false
+    }
+    $script:gameGone = $false
     # 认游戏当 owner（GWLP_HWNDPARENT = -8）：最小化时一起收，
     # 也不会在 Alt+Tab 里单独占一格
     try { [void][AZS.Win32]::SetWindowLongPtr($form.Handle, -8, $script:gameHwnd) } catch {}
@@ -95,22 +100,48 @@ function Sync-GameWindow {
   }
   if ([AZS.Win32]::IsIconic($script:gameHwnd)) { return $false }
   if (-not [AZS.Win32]::IsWindowVisible($script:gameHwnd)) { return $false }
+  # 先拿到游戏窗口矩形：前台判断和对齐都要用
+  $r = New-Object AZS.RECT
+  $gre = $null
+  if ([AZS.Win32]::GetWindowRect($script:gameHwnd, [ref]$r)) {
+    $gre = New-Object System.Drawing.Rectangle $r.Left, $r.Top,
+          ($r.Right - $r.Left), ($r.Bottom - $r.Top)
+  }
+
   if ($script:onlyForeground) {
     $fg = [AZS.Win32]::GetForegroundWindow()
     if ($fg -ne [IntPtr]::Zero) {
       $root = [AZS.Win32]::GetAncestor($fg, 2)     # GA_ROOT
-      if ($root -ne $script:gameHwnd) { return $false }
+      if ($root -ne $script:gameHwnd) {
+        # 1.2.3 之前只看「前台是不是游戏」：打开工具箱、按下截图键、点一下
+        # 统计框，前台就不是游戏了，徽标立刻消失 —— 用户看到的正是
+        # 「升级界面在，提示框没了」。现在改成看「游戏有没有被彻底盖住」：
+        # 只有前台窗口盖住游戏 85% 以上才收；只是旁边开着工具箱、或者
+        # 截图工具的小窗，游戏还看得见，徽标就继续画。
+        $hide = $true
+        if ($null -ne $gre -and $gre.Width -gt 0 -and $gre.Height -gt 0) {
+          $fr = New-Object AZS.RECT
+          if ([AZS.Win32]::GetWindowRect($fg, [ref]$fr)) {
+            $fre = New-Object System.Drawing.Rectangle $fr.Left, $fr.Top,
+                   ($fr.Right - $fr.Left), ($fr.Bottom - $fr.Top)
+            $inter = [System.Drawing.Rectangle]::Intersect($gre, $fre)
+            $ga = [double]$gre.Width * [double]$gre.Height
+            $ia = 0.0
+            if ($inter.Width -gt 0 -and $inter.Height -gt 0) {
+              $ia = [double]$inter.Width * [double]$inter.Height
+            }
+            if (($ia / $ga) -lt 0.85) { $hide = $false }
+          }
+        }
+        if ($hide) { return $false }
+      }
     }
   }
-  # 每帧对齐游戏窗口：拖动 / 缩放 / 全屏切换后徽标不会跑偏
-  $r = New-Object AZS.RECT
-  if ([AZS.Win32]::GetWindowRect($script:gameHwnd, [ref]$r)) {
-    $nr = New-Object System.Drawing.Rectangle $r.Left, $r.Top,
-          ($r.Right - $r.Left), ($r.Bottom - $r.Top)
-    if ($nr.Width -gt 200 -and $nr.Height -gt 200) {
-      if ($null -eq $script:lastRect -or -not $script:lastRect.Equals($nr)) {
-        $script:lastRect = $nr
-        try { $form.Bounds = $nr } catch {}
+  if ($null -ne $gre) {
+    if ($gre.Width -gt 200 -and $gre.Height -gt 200) {
+      if ($null -eq $script:lastRect -or -not $script:lastRect.Equals($gre)) {
+        $script:lastRect = $gre
+        try { $form.Bounds = $gre } catch {}
         try { $form.Invalidate() } catch {}
       }
     }
@@ -880,6 +911,18 @@ function Update-DpsPanel($state) {
   }
 }
 
+# 游戏真退了才收统计框。注意不能用 Update-DpsPanel $null 来代替：
+# 那条路会把「造成伤害 0 DPS / 还没有造成伤害」画上去，看着像统计坏了。
+function Hide-StatWindows {
+  try {
+    if ($script:dps -and $script:dps.Visible) { $script:dps.Hide() }
+    if ($script:bossPanel -and $script:bossPanel.Visible) { $script:bossPanel.Hide() }
+  } catch {}
+  # 清指纹，下次开局一定重排重画，不会留着上一局的名次
+  $script:dpsSig = ""
+  $script:bossSig = ""
+}
+
 function Update-BuildPanel($state) {
   $b = $null
   if ($null -ne $state) { $b = $state.build }
@@ -932,6 +975,7 @@ $script:lastPicked = $false
 $script:ctrlVisible = $true
 # ---- 缓存：让 tick 里「内容没变就一个控件都不碰」 ----
 $script:lastState = $null      # 上一次解析出来的 state.json
+$script:lastGood = $null       # 最后一次「完整可用」的 state（切前台时拿它冻结统计框）
 $script:stateStamp = ""        # 文件大小 + 修改时间，用来判断要不要重新解析
 $script:cardFullSig = ""       # 四张卡片整体的内容指纹（变了才整屏重绘）
 $script:hintKey = ""
@@ -976,7 +1020,14 @@ $timer.Add_Tick({
     Clear-Cards
     if ($script:glowRects.Count -gt 0) { $script:glowRects = @() }
     Update-BuildPanel $null
-    Update-DpsPanel $null
+    if ($script:gameGone) {
+      # 进程都没了：统计框一起收掉，别留两块零在桌面上
+      Hide-StatWindows
+    } else {
+      # 只是切走了前台（截图、Alt+Tab、点了一下统计框）：统计框保持上一帧的数字，
+      # 不能画成 0 DPS —— 那看着就像统计坏了
+      Update-DpsPanel $script:lastGood
+    }
     $script:wasVisible = $false
     return
   }
@@ -1002,7 +1053,7 @@ $timer.Add_Tick({
   if ($null -eq $state) {
     Clear-Cards
     Update-BuildPanel $null
-    Update-DpsPanel $null
+    Update-DpsPanel $script:lastGood
     return
   }
 
@@ -1011,10 +1062,14 @@ $timer.Add_Tick({
     # status=closed 而让整个悬浮层自杀。
     Clear-Cards
     Update-BuildPanel $null
-    Update-DpsPanel $null
+    Hide-StatWindows
     $script:wasVisible = $false
     return
   }
+
+  # 记一份「最后一次完整的 state」：切前台 / 读文件失败时拿它续命，
+  # 这两块统计框就不会突然变成 0 DPS
+  $script:lastGood = $state
 
   # 两块面板跟着游戏活着就一直更新；流派面板内部还要求「正在选卡」
   Update-BuildPanel $state
@@ -1022,9 +1077,15 @@ $timer.Add_Tick({
 
   $show = [bool]$state.visible -and $script:ctrlVisible
   if (-not $show -and $script:wasShownFlag) {
-    # 只在「本来是亮着的 → 刚刚灭掉」这一次记一笔，方便事后查为什么灭
+    # 只在「本来是亮着的 → 刚刚灭掉」这一次记一笔，方便事后查为什么灭。
+    # 开关关掉时 state.why 是空字符串，以前日志里就只剩一个 "hide: "，
+    # 事后完全看不出是谁关的 —— 这里单独说清楚。
     $script:wasShownFlag = $false
-    try { Log ("hide: " + [string]$state.why) } catch {}
+    if (-not $script:ctrlVisible) {
+      try { Log "hide: 悬浮层开关被关掉了（F8 或工具箱首页的开关）" } catch {}
+    } else {
+      try { Log ("hide: " + [string]$state.why) } catch {}
+    }
   } elseif ($show) {
     $script:wasShownFlag = $true
   }

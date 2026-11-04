@@ -356,7 +356,7 @@ def build_overlay(tk, parent):
                              default_value=True,
                              callback=cb_overlay_toggle, user_data=tk)
             dpg.add_spacer(width=18)
-            b = dpg.add_button(label="   立 即 显 示 / 隐 藏   ", height=34,
+            b = dpg.add_button(label="   隐 藏 悬 浮 层   ", tag="ov_flash", height=34,
                                callback=cb_overlay_flash, user_data=tk)
             dpg.bind_item_theme(b, T.accent_button_theme())
             dpg.add_spacer(width=14)

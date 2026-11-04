@@ -554,6 +554,8 @@ def build_ctx():
         cls=getattr(ST, "cls", ""),
         meter=ST.meter,
         share_fn=share_of,
+        # BOSS 口径单独一份榜：打首领只剩一个目标，占比和小怪战差很远
+        boss_meter=ST.boss_meter,
         talents=talents,
         settings=SETTINGS,
         gear=ST.gear,
@@ -647,8 +649,15 @@ def boss_line(r):
         txt = "?"
         kind = ""
     elif bp <= 0.05:
-        txt = "0%·只吃多目标"
-        kind = "weak"
+        # 「只吃多目标」只能给真的靠目标数吃饭的卡。
+        # 幸运、金币这类卡打 BOSS 当然也是 0，但那样写会被误读成
+        # 「这卡打 BOSS 没用」，其实它本来就不是伤害卡。
+        if "只加目标" in (r.get("note") or ""):
+            txt = "0%·只吃多目标"
+            kind = "weak"
+        else:
+            txt = "0%"
+            kind = ""
     else:
         txt = ("+%.1f%%" if r.get("confident") else "≈+%.1f%%") % bp
         # 比小怪战低 3 个点以上 = 群体卡，进 BOSS 战明显掉价
@@ -947,7 +956,12 @@ def build_state():
                 "confident": conf,
                 "basis": MODEL.card_basis(ch, ability_by_name),
             })
-        known = [r["pct"] for r in results if r["pct"] is not None]
+        # 综合评价按「这张卡最能发挥的那一种战斗」算：
+        # 单体特化的卡（瞄准射击）在小怪战里占比很低，但打 BOSS 很值，
+        # 只看全局口径会把它判成「聊胜于无」，和下面第三行的 BOSS 数字打架。
+        for r in results:
+            r["eff"] = max(r["pct"] or 0.0, r["boss_pct"] or 0.0)
+        known = [r["eff"] for r in results if r["pct"] is not None]
         best = max(known) if known else None
         # 流派点名要的技能优先：只要牌里有流派核心，★ 就只从它们里面出，
         # 数字再大的杂牌也抢不走这个标记
@@ -969,7 +983,7 @@ def build_state():
         n = len(results)
         step = cfg.get("card_step", 0.1958)
         for i, r in enumerate(results):
-            r["best"] = (best is not None and r["pct"] == best and r["pct"] > 0 and
+            r["best"] = (best is not None and r["eff"] == best and r["eff"] > 0 and
                          (not must or r["spec"] == "must"))
             r["slot"] = i
             # 卡牌始终以屏幕中心对称排布，相邻中心间距固定
@@ -980,10 +994,10 @@ def build_state():
             r["util"] = (r["pct"] == 0.0) and (not r["confident"]) and (
                 "非伤害" in r["note"] or "治疗/防御" in r["note"])
             # ---- 第一行：综合评价（字最大，一眼决定拿不拿）----
-            r["grade"], r["grade_key"] = grade_of(r["pct"], r["confident"], r["util"])
+            r["grade"], r["grade_key"] = grade_of(r["eff"], r["confident"], r["util"])
             if r["spec"] == "must":
                 r["grade"] = "◆ " + r["grade"]
-            elif r["best"] and (r["pct"] or 0.0) >= 8.0:
+            elif r["best"] and r["eff"] >= 8.0:
                 r["grade"] = "★ " + r["grade"]
             # ---- 第二行：全局增伤（这把牌对总输出的提升）----
             if r["pct"] is None:
@@ -1080,6 +1094,45 @@ def line_ts(line):
         return None
 
 
+def _maybe_new_run(run):
+    """开局 / 重开时把上一局的战斗统计清掉。
+
+    以前只清总榜，AZSBOSSDMG 那份一直留着：上一局打了 5 个 BOSS 的
+    技能占比，新局一开局就顶在那儿，直到第一次打 BOSS 才被覆盖。
+    现在两条判据，任一条成立就当作新的一局：
+
+      · 本局计时 t 明显回退（上一局 900 秒，这一局从 0 秒开始）
+      · 阶段从结算界面（victory / dead）回到 ready / playing
+    """
+    def _f(key):
+        try:
+            return float(run.get(key))
+        except (TypeError, ValueError):
+            return None
+
+    new_t = _f("t")
+    try:
+        old_t = float(ST.run.get("t"))
+    except (TypeError, ValueError):
+        old_t = None
+    ph = (run.get("ph") or "").strip()
+    old_ph = (ST.run.get("ph") or "").strip()
+
+    fresh = False
+    if new_t is not None and old_t is not None and new_t + 5.0 < old_t:
+        fresh = True            # 计时回退 = 新开一局
+    if ph in ("ready", "playing") and old_ph in ("victory", "dead"):
+        fresh = True            # 从结算界面回到战斗
+    if not fresh:
+        return False
+
+    ST.meter = []
+    ST.boss_meter = []
+    ST.meter_ts = 0.0
+    ST.boss_ts = 0.0
+    return True
+
+
 def handle_line(line):
     line = line.rstrip("\r\n")
     if not line:
@@ -1156,6 +1209,7 @@ def handle_line(line):
         if tag == "AZSRUN":
             run = parse_pairs(body)
             if run:
+                _maybe_new_run(run)
                 ST.run = run
                 ph = run.get("ph")
                 if ph:
@@ -1208,6 +1262,9 @@ def game_alive():
 def reset_state():
     ST.stats = {}
     ST.meter = []
+    # BOSS 那份也要清：只清总榜的话，上一局打 BOSS 的占比会一直挂在统计框里
+    ST.boss_meter = []
+    ST.boss_ts = 0.0
     ST.spells = {}
     ST.offer = None
     ST.offer_ts = 0.0

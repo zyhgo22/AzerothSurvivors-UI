@@ -33,6 +33,11 @@ import json
 import os
 import re
 
+try:
+    import azs_luck as LUCK
+except Exception:                       # 单独跑测试时缺文件也不该崩
+    LUCK = None
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -165,16 +170,34 @@ NEUTRAL_PROFILE = {
 }
 
 
+def _lookup_row(rows, key):
+    """在伤害榜里找某个技能，先精确后模糊（「裂空之眼: 多重射击」也算多重射击）。"""
+    if not rows or not key:
+        return None
+    for r in rows:
+        if (r.get("name") or "").strip() == key:
+            return r.get("share")
+    for r in rows:
+        n = (r.get("name") or "").strip()
+        if n and (key in n or n in key):
+            return r.get("share")
+    return None
+
+
 class Ctx(object):
     """一次选卡时的 build 快照"""
 
     def __init__(self, stats=None, lvl=1, cls="", meter=None, share_fn=None,
-                 talents=None, settings=None, gear=None, panel=None):
+                 talents=None, settings=None, gear=None, panel=None,
+                 boss_meter=None):
         s = stats or {}
         self.stats = s
         self.lvl = int(lvl or 1)
         self.cls = (cls or "").strip().lower()
         self.meter = meter or []
+        # 只统计打首领那一段的榜。BOSS 战口径要按它算占比 —— 小怪战里
+        # 群体技能吃满多目标，占比和打单个首领完全是两回事。
+        self.boss_meter = boss_meter or []
         self._share = share_fn
         self.settings = settings or {}
         # 身上穿的项链/戒指/饰品：{"amulet": ("corruption", 7), ...}
@@ -196,6 +219,8 @@ class Ctx(object):
         self.dots = int(_f(s.get("dots"), 0) or 0)
         # 宠物伤害占比：客户端 AZS 那行里的 pet 字段（0~1）
         self.pet = min(1.0, max(0.0, _f(s.get("pet"), 0.0)))
+        # 幸运：只用来给「+X% 幸运」的卡折算收益（见 azs_luck.py）
+        self.luck = max(0.0, _f(s.get("luck"), 0.0))
 
         prof = PROFILES.get(self.cls, NEUTRAL_PROFILE)
         self.profile = prof
@@ -224,16 +249,23 @@ class Ctx(object):
         base = self.dots if self.dots > 0 else min(1 + self.lvl // 15, 4)
         return max(1, int(base + self.talents.get("dot_stack_bonus", 0)))
 
-    def share(self, name):
+    def share(self, name, boss=False):
+        """技能占多少总伤害。
+
+        boss=True 时优先用 BOSS 榜（AZSBOSSDMG）：打首领只剩一个目标，
+        群体技能的占比会掉、单体技能会涨，拿小怪战的占比去算 BOSS 收益
+        会严重失真。BOSS 榜还没有数据时再退回总榜。
+        """
+        key = (name or "").strip()
+        if boss and self.boss_meter:
+            v = _lookup_row(self.boss_meter, key)
+            if v is not None:
+                return v
         if self._share:
             v = self._share(name)
             if v is not None:
                 return v
-        key = (name or "").strip()
-        for r in self.meter:
-            if (r.get("name") or "").strip() == key:
-                return r.get("share")
-        return None
+        return _lookup_row(self.meter, key)
 
     def dot_share(self):
         if self.dotd > 0.01:
@@ -666,8 +698,15 @@ def eval_effects(effects, ctx, subj, share):
                 ratio *= (100.0 + a) / (100.0 + b)
                 local_pool = b / 100.0          # 只存「加成部分」，池子 = 1 + 它
                 notes.append("伤害+%g/%g" % (a - b, 100 + b))
+            elif scope == "skill":
+                # 「瞄准射击的伤害提高 20%」—— 这是给这个技能自己的乘区。
+                # 2026-11-04 拿 client.log 核对过：这类卡选了之后，
+                # 客户端的全局 dmg 一点没变（只有每级 +0.03 的自然增长），
+                # 所以不能拿它去除以全局池；除出来的 0.2% 是这么来的。
+                ratio *= 1.0 + d / 100.0
+                notes.append("+%g%%伤害" % d)
             else:
-                # 无箭头时卡面只给一个「+X% 伤害」，它是加进伤害池的。
+                # 全局 / 宠物卡的「+X% 伤害」是加进伤害池的。
                 # 池子至少要算上已经堆起来的全局伤害（ctx.dmg），
                 # 否则「+152%」会被当成 ×2.52 —— 实际在 247% 的池里只有 ×1.62。
                 # （2026-11-01 用户截图：瘟疫坠饰被算成 +340%，虚高约 15 倍）
@@ -1132,7 +1171,14 @@ def _swap_gain(ctx, choice, name, subj, share, solo=False):
 
     cur = (ctx.gear or {}).get(slot)
     cur_key = cur_rank = None
-    if cur:
+    if isinstance(cur, dict):
+        # 现在的格式：{"id": "fire_lord", "affix": None, "rank": 1}
+        cur_key = cur.get("id") or cur.get("affix")
+        try:
+            cur_rank = int(cur.get("rank"))
+        except (TypeError, ValueError):
+            cur_rank = None
+    elif cur:
         try:
             cur_key, cur_rank = cur[0], int(cur[1])
         except (TypeError, ValueError, IndexError):
@@ -1250,6 +1296,11 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
         subj = name
 
     effects = parse_card(text)
+    # 幸运单独拎出来：它不作用在伤害上，而是改变后面 N 次选卡的品质分布，
+    # 折算方式见 azs_luck.py（取值、K、每档品质值多少增伤都在那边）
+    luck_d = sum(e.delta for e in effects if e.stat == "luck")
+    if luck_d:
+        effects = [e for e in effects if e.stat != "luck"]
     bounces = bounce_targets(text)
     solo_dead = False
     if solo:
@@ -1258,6 +1309,9 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
         bounces = []
         solo_dead = raw_n > 0 and not effects and not bounces
     if not effects and not bounces:
+        if luck_d and LUCK:
+            gain = LUCK.gain(ctx.luck, luck_d, ctx.lvl)
+            return gain, LUCK.describe(ctx.luck, luck_d, ctx.lvl), False, True
         if solo_dead:
             # 这张卡给的全是「+目标 / +范围 / 弹射」—— 打单体 BOSS 就是 0
             return 0.0, "只加目标/范围，BOSS 战无收益", True, True
@@ -1274,7 +1328,8 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
         if share <= 0.001:
             share = 1.0
     elif subj:
-        share = ctx.share(subj)
+        # solo=True 走 BOSS 口径：占比优先取 BOSS 榜，别再拿小怪战的占比
+        share = ctx.share(subj, boss=solo)
         if share is None:
             if is_damage_skill(subj):
                 # 该技能这一把还没打出伤害：先用技能面板算个权重（伤害高的排前面），
@@ -1306,7 +1361,14 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
             notes.append("全局跳跃%g" % sum(n for n, _ in bounces))
 
     note = " ".join(n for n in notes if n)
+    luck_add = 0.0
+    if luck_d and LUCK:
+        # 幸运卡多半还带点别的（+金币、+拾取），别把它当纯辅助丢掉
+        luck_add = LUCK.gain(ctx.luck, luck_d, ctx.lvl)
+        note = (note + " " + LUCK.describe(ctx.luck, luck_d, ctx.lvl)).strip()
     if not dmg_related:
+        if luck_add > 0:
+            return luck_add, note, False, True
         return 0.0, "非伤害·" + note if note else "非伤害", False, False
 
     # 装备卡（项链/戒指/饰品）只能戴一件：先按「新的 - 身上旧的」算净账。
@@ -1316,7 +1378,7 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
         return swapped[0], swapped[1], False, True
 
     if share is not None:
-        pct = (ratio - 1.0) * 100.0 * share
+        pct = (ratio - 1.0) * 100.0 * share + luck_add
         if share >= 0.999:
             head = ""                                   # 全局口径：不用再说占比
         elif pet_card:
@@ -1331,4 +1393,4 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
             head = "换下%s-%g%% " % (short, round(lost * 100)) + head
             conf = False
         return pct, head + note, conf, True
-    return (ratio - 1.0) * 100.0, note, conf, True
+    return (ratio - 1.0) * 100.0 + luck_add, note, conf, True
