@@ -1,10 +1,10 @@
 {
- "version": "1.2.6",
- "released": "2026-11-04 15:29",
+ "version": "1.2.7",
+ "released": "2026-11-04 16:05",
  "notes": [
-  "修：中文文件名（AZS工具箱.cmd 等）下载地址未编码，urllib 报 ascii 编码错误，更新断在下载",
-  "含 1.2.5：多镜像取最高版本、CRLF/LF 校验兼容、镜像回退",
-  "含 1.2.4：升级界面提示不再整屏消失、统计框不再清零、按钮文案随状态"
+  "检查更新失败时列出每条线路的实测结果（可用/不通 + 耗时 + 版本）",
+  "新增 jsDelivr(gcore) 备用线路",
+  "含 1.2.6：中文文件名下载地址 URL 编码"
  ],
  "files": {
   "AZS工具箱.cmd": {
@@ -20,8 +20,8 @@
    "size": 6372
   },
   "azs_config.py": {
-   "sha256": "0fc4fcd8f261d05787aeda8ead13a030956a4c41779dae653226298f923d0ac2",
-   "size": 19055
+   "sha256": "97223ba2ee1ee9c05c6c3382c7541a7bb65cd43e32f1fd69c93f82aeb74933ae",
+   "size": 19413
   },
   "azs_dialog.py": {
    "sha256": "d9bd14a3a06c292086529b3e5871dca0f3b541af697a2f318235dd93ec8ce811",
@@ -52,15 +52,15 @@
    "size": 18750
   },
   "azs_page_update.py": {
-   "sha256": "6abd59b89b48b9d73ed9494526a844901ddcc00ee29fdbc9c81e927a11a91977",
-   "size": 14383
+   "sha256": "b6f0564bdbcaf16859c09d3c83f5fbcba5944003f5bc1dfe5b0b97347eda7638",
+   "size": 15360
   },
   "azs_pages.py": {
    "sha256": "ed1bc6cdc45aaf49234bedd50b16523a29339fbc8375b6483e2c1324c9759b63",
    "size": 43279
   },
   "azs_paths.py": {
-   "sha256": "1454ae945fa76527b36fd27c168394737fe95a8dbf25933d77c1ff97c49ad556",
+   "sha256": "a88dd32fecb59aab8ee24dd684e9897c20d57f2d111a6dd1bc2c36548dfe4b95",
    "size": 4793
   },
   "azs_proc.py": {
@@ -84,8 +84,8 @@
    "size": 24325
   },
   "azs_update.py": {
-   "sha256": "b5015eb3ab83d3958a5d1538d0bb7d33ec045ec78b375826c76e66446618571f",
-   "size": 16864
+   "sha256": "802e8e3587a6092a9defbea10272fc2c11ac00b46cdb6548f0e45f5eb91d6c5c",
+   "size": 17537
   },
   "brain.py": {
    "sha256": "ad27c8257f1268cfdd6aa3073d91e7c5d4a265153fdf3fa81edfa1b64bb00101",
@@ -184,8 +184,8 @@
    "size": 1498
   },
   "更新说明.txt": {
-   "sha256": "ba88928107a8c62d80d7ac51867ebbfb59fd14808b14a7d911b6e73633361a80",
-   "size": 32189
+   "sha256": "d0a29028e06d6e8db38505cbd9db75891ac5dd0be169d32c488354ea3456a703",
+   "size": 32984
   },
   "还原原值.cmd": {
    "sha256": "385623f215c04f8f2e60deb9c70c27f2a19e87f5d4ba820a116425e56afdea40",

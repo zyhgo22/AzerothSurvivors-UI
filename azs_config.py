@@ -68,9 +68,16 @@ MIRROR_PREFIXES = [
     "https://ghproxy.net/",
 ]
 
+# jsDelivr 的路径格式和上面那几家不一样（/gh/用户/仓库@分支/文件名），
+# 没法当「前缀」用，单独列。它的缓存比镜像还久，只当最后一根稻草。
+CDN_MANIFESTS = [
+    "https://gcore.jsdelivr.net/gh/%s@%s/latest.json" % (GITHUB_REPO, GITHUB_BRANCH),
+]
+
 DEFAULT_MANIFEST_URL = MIRROR_PREFIXES[0] + RAW_MANIFEST
 FALLBACK_MANIFEST_URLS = ([RAW_MANIFEST]
-                          + [p + RAW_MANIFEST for p in MIRROR_PREFIXES[1:]])
+                          + [p + RAW_MANIFEST for p in MIRROR_PREFIXES[1:]]
+                          + list(CDN_MANIFESTS))
 
 DEFAULT_PROFILE = {
     "class": "paladin",

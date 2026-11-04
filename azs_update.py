@@ -114,27 +114,33 @@ def check(manifest_url, timeout=20, alts=None):
 
     results = []
     if len(urls) == 1:
-        results = [(urls[0], _check_one(urls[0], timeout))]
+        results = [_timed_check(urls[0], timeout)]
     else:
         try:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=min(4, len(urls))) as ex:
-                results = list(zip(urls, ex.map(
-                    lambda u: _check_one(u, timeout), urls)))
+                results = list(ex.map(
+                    lambda u: _timed_check(u, timeout), urls))
         except Exception:
-            results = [(u, _check_one(u, timeout)) for u in urls]
+            results = [_timed_check(u, timeout) for u in urls]
 
-    oks = [(u, r) for u, r in results if r.get("ok")]
+    diag = [{"url": u, "ok": bool(r.get("ok")),
+             "version": r.get("version") or "",
+             "ms": ms, "error": r.get("error") or ""}
+            for u, r, ms in results]
+
+    oks = [(u, r) for u, r, _ms in results if r.get("ok")]
     if oks:
         u, res = max(oks, key=lambda p: parse_version(p[1].get("version")))
         res["used_url"] = u
         res["tried"] = urls.index(u) + 1
         res["total_urls"] = len(urls)
-        res["all_versions"] = {u: r.get("version") for u, r in results}
+        res["all_versions"] = {u: r.get("version") for u, r, _m in results}
+        res["diag"] = diag
         # 下载时挨个镜像试：清单是新的，文件却可能还停在镜像的旧缓存里，
         # 哈希对不上就换下一家，比让更新直接失败强。
         bases = [res.get("base") or ""]
-        for _u, r in results:
+        for _u, r, _m in results:
             b = r.get("base") or ""
             if r.get("ok") and b and b not in bases:
                 bases.append(b)
@@ -143,9 +149,25 @@ def check(manifest_url, timeout=20, alts=None):
 
     last = results[-1][1] if results else {"ok": False, "error": "检查失败"}
     last["total_urls"] = len(urls)
+    last["diag"] = diag
     if len(urls) > 1:
         last["error"] = "%s（%d 个地址都试过了）" % (last.get("error") or "", len(urls))
     return last
+
+
+def _timed_check(url, timeout):
+    """跑一次单地址检查，顺带记下耗时 —— 「线路诊断」要显示每条路快慢。"""
+    t0 = time.time()
+    res = _check_one(url, timeout)
+    return url, res, int((time.time() - t0) * 1000)
+
+
+def host_of(url):
+    """https://gh-proxy.com/https://raw... → gh-proxy.com"""
+    try:
+        return urllib.parse.urlsplit(url).hostname or url
+    except Exception:
+        return url
 
 
 def _check_one(manifest_url, timeout=20):

@@ -172,6 +172,7 @@ class UpdatePage:
         self._set_button("   检 查 更 新   ")
         if not res.get("ok"):
             self._say(res.get("error") or "检查失败", T.C_RED)
+            self._show_diag(res.get("diag") or [])
             return
         self.manifest = dict(res["manifest"])
         self.manifest["base"] = res["base"]
@@ -309,6 +310,25 @@ class UpdatePage:
             self.tk._toast_msg(text.split("\n")[0][:80])
         except Exception:
             pass
+
+    def _show_diag(self, diag):
+        """检查失败时，把每条线路的实测结果摊开——「连不上」到底是谁连不上。"""
+        if not diag:
+            return
+        lines = []
+        for d in diag:
+            host = U.host_of(d.get("url") or "")
+            secs = (d.get("ms") or 0) / 1000.0
+            if d.get("ok"):
+                lines.append("%-18s 可用   v%s   %.1f 秒" % (host, d.get("version") or "?", secs))
+            else:
+                err = (d.get("error") or "连不上").replace("\n", " ")[:30]
+                lines.append("%-18s 不通   %s   %.1f 秒" % (host, err, secs))
+        self._show_notes(
+            lines,
+            prefix="各条线路的实测结果：\n"
+                   "有一条「可用」，就把「设置 → 更新地址」换成那一条；\n"
+                   "全都不通，用左边的「从更新包导入」照样能升级。\n")
 
     def _show_notes(self, notes, prefix=""):
         try:
