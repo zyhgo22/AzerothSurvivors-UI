@@ -188,6 +188,13 @@ def _check_one(manifest_url, timeout=20):
 
 
 # --------------------------------------------------------------------- 下载
+def _file_url(base, name):
+    """拼出文件的下载地址。中文文件名必须百分号编码，否则 urllib 直接抛
+    「'ascii' codec can't encode」——「AZS工具箱.cmd」这种名字以前永远下不下来。"""
+    safe = "/".join(urllib.parse.quote(seg, safe="") for seg in name.split("/"))
+    return urllib.parse.urljoin(base, safe)
+
+
 def plan_download(manifest, local_version):
     """列出需要下载的文件（对比本地 sha256）。"""
     base = manifest.get("base") or ""
@@ -207,7 +214,7 @@ def plan_download(manifest, local_version):
         if want and os.path.isfile(path):
             if _sha256_file(path) == want:
                 continue        # 本地已经一样，跳过
-        urls = [urllib.parse.urljoin(b, name) for b in bases]
+        urls = [_file_url(b, name) for b in bases]
         todo.append({"name": name, "url": urls[0] if urls else "",
                      "urls": urls, "sha256": want,
                      "size": (info or {}).get("size") or 0})
