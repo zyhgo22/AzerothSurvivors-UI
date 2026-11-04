@@ -61,6 +61,63 @@ $form.BackColor = [System.Drawing.Color]::FromArgb(255, 0, 255)
 $form.TransparencyKey = [System.Drawing.Color]::FromArgb(255, 0, 255)
 $form.Text = "AZS DpsGain"
 
+# ---------- 跟着游戏窗口走 ----------
+# 以前这个覆盖层是「全屏置顶贴纸」：不管游戏是最小化、还是切到别的程序，
+# 它都赖在最上面。现在把它认成游戏窗口的从属窗口（owner）：
+#   * 游戏最小化 -> 它跟着一起收
+#   * 游戏被切到后台 -> 直接不画（用户看的是别的程序，别挡着）
+#   * 游戏窗口移动/缩放 -> 每一帧对齐，徽标永远贴着卡牌
+$script:gameHwnd = [IntPtr]::Zero
+$script:onlyForeground = $true
+$script:lastRect = $null
+# 开发用：AZS_OVERLAY_DEV=1 时不检查游戏窗口，直接画（方便截图看排版）
+$script:devMode = ($env:AZS_OVERLAY_DEV -eq "1")
+
+function Find-GameWindow {
+  try {
+    $p = Get-Process -Name AzerothSurvivors -ErrorAction SilentlyContinue |
+         Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
+    if ($p) { return $p.MainWindowHandle }
+  } catch {}
+  return [IntPtr]::Zero
+}
+
+function Sync-GameWindow {
+  # 返回 $true = 游戏在前台且没最小化，可以画东西
+  if ($script:devMode) { return $true }
+  if ($script:gameHwnd -eq [IntPtr]::Zero -or -not [AZS.Win32]::IsWindow($script:gameHwnd)) {
+    $script:gameHwnd = Find-GameWindow
+    if ($script:gameHwnd -eq [IntPtr]::Zero) { return $false }
+    # 认游戏当 owner（GWLP_HWNDPARENT = -8）：最小化时一起收，
+    # 也不会在 Alt+Tab 里单独占一格
+    try { [void][AZS.Win32]::SetWindowLongPtr($form.Handle, -8, $script:gameHwnd) } catch {}
+    $script:lastRect = $null
+  }
+  if ([AZS.Win32]::IsIconic($script:gameHwnd)) { return $false }
+  if (-not [AZS.Win32]::IsWindowVisible($script:gameHwnd)) { return $false }
+  if ($script:onlyForeground) {
+    $fg = [AZS.Win32]::GetForegroundWindow()
+    if ($fg -ne [IntPtr]::Zero) {
+      $root = [AZS.Win32]::GetAncestor($fg, 2)     # GA_ROOT
+      if ($root -ne $script:gameHwnd) { return $false }
+    }
+  }
+  # 每帧对齐游戏窗口：拖动 / 缩放 / 全屏切换后徽标不会跑偏
+  $r = New-Object AZS.RECT
+  if ([AZS.Win32]::GetWindowRect($script:gameHwnd, [ref]$r)) {
+    $nr = New-Object System.Drawing.Rectangle $r.Left, $r.Top,
+          ($r.Right - $r.Left), ($r.Bottom - $r.Top)
+    if ($nr.Width -gt 200 -and $nr.Height -gt 200) {
+      if ($null -eq $script:lastRect -or -not $script:lastRect.Equals($nr)) {
+        $script:lastRect = $nr
+        try { $form.Bounds = $nr } catch {}
+        try { $form.Invalidate() } catch {}
+      }
+    }
+  }
+  return $true
+}
+
 # ---- 预设命中的外发光 ----
 # 徽标是 Label，自己画不了光晕；光晕画在 form 这一层（比子控件早画，正好在徽标下面）。
 # 四种亮度循环 = 呼吸感，一眼能在三张牌里认出来。
@@ -83,11 +140,35 @@ $form.Add_Paint({
 
 # ---- 让窗口对鼠标完全"隐形" ----
 # 不加这段，这个覆盖全屏的置顶窗口会吃掉所有鼠标事件，游戏里点不到任何东西。
-Add-Type -Namespace AZS -Name Win32 -MemberDefinition @'
-[DllImport("user32.dll", SetLastError = true)]
-public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-[DllImport("user32.dll", SetLastError = true)]
-public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+namespace AZS {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+
+  public static class Win32 {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool IsWindow(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+  }
+}
 '@
 $GWL_EXSTYLE = -20
 $WS_EX_TRANSPARENT = 0x00000020
@@ -111,76 +192,163 @@ function Set-ClickThrough($handle) {
 }
 
 $script:fontScale = $FontScale
-$script:fontMain = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](17 * $script:fontScale), [System.Drawing.FontStyle]::Bold)
-$script:fontSub = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](8 * $script:fontScale), [System.Drawing.FontStyle]::Regular)
+$script:fonts = @{}
 
-# 字号在工具箱里改完要立刻生效，所以字体做成可以重建的
-function Set-FontScale([double]$scale) {
-  if ($scale -lt 0.5) { $scale = 0.5 }
-  if ($scale -gt 3.0) { $scale = 3.0 }
-  if ([math]::Abs($scale - $script:fontScale) -lt 0.001) { return }
-  $script:fontScale = $scale
-  try {
-    $script:fontMain = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](17 * $scale), [System.Drawing.FontStyle]::Bold)
-    $script:fontSub = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](8 * $scale), [System.Drawing.FontStyle]::Regular)
-    foreach ($b in $script:badges) {
-      $b.Main.Font = $script:fontMain
-      $b.Sub.Font = $script:fontSub
-    }
-    if ($script:hint) { $script:hint.Font = $script:fontSub }
-    Rebuild-PanelFonts
-    $script:panelSig = ""   # 逼下一帧按新字号重排
-    $script:dpsSig = ""
-    $script:bossSig = ""
-    Log ("font scale -> " + $scale)
-  } catch {
-    Log ("font rebuild failed: " + $_.Exception.Message)
+# 徽标改成「整块自绘」：以前是三个 Label 拼出来的黑条，字号只能一档，
+# 四行信息挤在一起没有主次。现在用 GDI+ 画一张小卡片 —— 圆角、左色条、
+# 分割线、四行文字各自字号，全部一次画完（只有内容变了才重画）。
+function Build-Fonts([double]$scale) {
+  foreach ($f in $script:fonts.Values) { try { $f.Dispose() } catch {} }
+  $script:fonts = @{}
+  $script:fonts["grade"] = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](16.5 * $scale), [System.Drawing.FontStyle]::Bold)
+  $script:fonts["num"] = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](12.5 * $scale), [System.Drawing.FontStyle]::Bold)
+  $script:fonts["label"] = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](9.0 * $scale), [System.Drawing.FontStyle]::Regular)
+  $script:fonts["value"] = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](10.0 * $scale), [System.Drawing.FontStyle]::Regular)
+  $script:fonts["hint"] = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](8.5 * $scale), [System.Drawing.FontStyle]::Regular)
+}
+Build-Fonts $script:fontScale
+
+# 综合评价的配色：从「强烈推荐」的薄荷绿到「不建议」的砖红，
+# 一眼扫过去不用读字就知道哪张该拿。
+$script:gradeRGB = @{
+  "s" = @(86, 230, 150); "a" = @(168, 222, 104); "b" = @(226, 194, 106)
+  "c" = @(150, 165, 157); "d" = @(224, 122, 96); "util" = @(120, 136, 129)
+  "unknown" = @(104, 118, 112)
+}
+$script:cards = @()          # 当前要画的卡片（0~4 张）
+$script:cardSig = @("", "", "", "")
+
+function New-RoundPath([single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
+  $p = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $d = $r * 2
+  if ($d -gt $w) { $d = $w }
+  if ($d -gt $h) { $d = $h }
+  $p.AddArc($x, $y, $d, $d, 180, 90)
+  $p.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
+  $p.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90)
+  $p.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
+  $p.CloseFigure()
+  return $p
+}
+
+function Draw-Str($g, [string]$text, $font, $color, [single]$x, [single]$y,
+                   [single]$w, [single]$h, [string]$align) {
+  if (-not $text) { return }
+  $sf = New-Object System.Drawing.StringFormat
+  if ($align -eq "far") {
+    $sf.Alignment = [System.Drawing.StringAlignment]::Far
+  } elseif ($align -eq "center") {
+    $sf.Alignment = [System.Drawing.StringAlignment]::Center
+  } else {
+    $sf.Alignment = [System.Drawing.StringAlignment]::Near
   }
+  $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+  $sf.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
+  $br = New-Object System.Drawing.SolidBrush($color)
+  $rect = New-Object System.Drawing.RectangleF($x, $y, $w, $h)
+  $g.DrawString($text, $font, $br, $rect, $sf)
+  $br.Dispose()
+  $sf.Dispose()
 }
 
-$script:badges = @()
-for ($i = 0; $i -lt 4; $i++) {
-  $main = New-Object System.Windows.Forms.Label
-  $main.AutoSize = $false
-  $main.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-  $main.Font = $script:fontMain
-  $main.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-  $main.ForeColor = [System.Drawing.Color]::White
-  $main.Visible = $false
+$form.Add_Paint({
+    param($sender, $e)
+    try {
+      $g = $e.Graphics
+      # 不用 AntiAlias：窗口靠 TransparencyKey 抠背景，抗锯齿会在圆角边上
+      # 混出一圈品红色毛边（透明色是纯品红）。宁可圆角略带锯齿，也不能发紫。
+      $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+      $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
+      $sc = $script:fontScale
+      # ---- 预设命中的呼吸金边（画在卡片底下，先画）
+      if ($script:glowRects.Count -gt 0) {
+        $pen = $script:glowPens[$script:glowPhase % 4]
+        foreach ($r in $script:glowRects) {
+          $gp = New-RoundPath ($r.X) ($r.Y) ($r.Width) ($r.Height) 13
+          $g.DrawPath($pen, $gp)
+          $gp.Dispose()
+        }
+      }
+      foreach ($c in $script:cards) {
+        if ($null -eq $c) { continue }
+        $x = [single]$c.X; $y = [single]$c.Y
+        $w = [single]$c.W; $h = [single]$c.H
+        $path = New-RoundPath $x $y $w $h 12
+        # 卡面：上深下浅一点点，纯色看着像贴纸
+        $brBg = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+          (New-Object System.Drawing.PointF($x, $y)),
+          (New-Object System.Drawing.PointF($x, ($y + $h))),
+          [System.Drawing.Color]::FromArgb(246, 21, 29, 25),
+          [System.Drawing.Color]::FromArgb(246, 11, 16, 14))
+        $g.FillPath($brBg, $path)
+        $brBg.Dispose()
+        # 顶边一条 1px 高光：卡片才有厚度，不像一块纯色矩形
+        $penHi = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(26, 255, 255, 255)), 1
+        $g.DrawLine($penHi, ($x + 12), ($y + 1), ($x + $w - 12), ($y + 1))
+        $penHi.Dispose()
+        $rgb = $script:gradeRGB[$c.GKey]
+        if ($null -eq $rgb) { $rgb = $script:gradeRGB["unknown"] }
+        $cAccent = [System.Drawing.Color]::FromArgb(255, $rgb[0], $rgb[1], $rgb[2])
+        # 左边 3px 色条：颜色就是评级
+        $g.SetClip($path)
+        $brAcc = New-Object System.Drawing.SolidBrush($cAccent)
+        $g.FillRectangle($brAcc, $x, $y, [single](3 * $sc), $h)
+        $brAcc.Dispose()
+        $g.ResetClip()
+        $penB = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 44, 58, 51)), 1
+        $g.DrawPath($penB, $path)
+        $penB.Dispose()
+        $path.Dispose()
 
-  $sub = New-Object System.Windows.Forms.Label
-  $sub.AutoSize = $false
-  $sub.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-  $sub.Font = $script:fontSub
-  $sub.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-  $sub.ForeColor = [System.Drawing.Color]::FromArgb(170, 180, 195)
-  $sub.Visible = $false
+        $pad = [single](13 * $sc)
+        # ---- 第一行：综合评价（最大）
+        $gh = [single](28 * $sc)
+        Draw-Str $g $c.Grade $script:fonts["grade"] $cAccent ($x + $pad) ($y + 10) ($w - $pad * 2 - (3 * $sc)) $gh "near"
+        # ---- 分割线
+        $penL = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 38, 52, 45)), 1
+        $g.DrawLine($penL, ($x + $pad), ($y + 10 + $gh + 3), ($x + $w - $pad), ($y + 10 + $gh + 3))
+        # ---- 第二/三/四行：左标签 + 右值
+        $rowH = [single](18 * $sc)
+        $ry = $y + 10 + $gh + 11
+        $lx = $x + $pad + (3 * $sc)
+        $lw = [single](34 * $sc)
+        $vw = $w - $pad * 2 - (3 * $sc) - $lw
+        $dim = [System.Drawing.Color]::FromArgb(255, 136, 152, 144)
+        Draw-Str $g "全局" $script:fonts["label"] $dim $lx $ry $lw $rowH "near"
+        Draw-Str $g $c.Global $script:fonts["num"] ([System.Drawing.Color]::FromArgb(255, 232, 242, 236)) ($lx + $lw) $ry $vw $rowH "far"
+        $ry += $rowH + [single](1 * $sc)
+        Draw-Str $g "BOSS" $script:fonts["label"] $dim $lx $ry $lw $rowH "near"
+        $bc = [System.Drawing.Color]::FromArgb(255, 168, 181, 174)
+        if ($c.BossKind -eq "tag") { $bc = [System.Drawing.Color]::FromArgb(255, 86, 230, 150) }
+        elseif ($c.BossKind -eq "weak") { $bc = [System.Drawing.Color]::FromArgb(255, 226, 176, 106) }
+        Draw-Str $g $c.Boss $script:fonts["value"] $bc ($lx + $lw) $ry $vw $rowH "far"
+        $ry += $rowH + [single](1 * $sc)
+        Draw-Str $g "流派" $script:fonts["label"] $dim $lx $ry $lw $rowH "near"
+        $sc2 = [System.Drawing.Color]::FromArgb(255, 150, 165, 157)
+        if ($c.SKind -eq "must") { $sc2 = [System.Drawing.Color]::FromArgb(255, 240, 198, 116) }
+        elseif ($c.SKind -eq "opt") { $sc2 = [System.Drawing.Color]::FromArgb(255, 150, 216, 168) }
+        Draw-Str $g $c.Spec $script:fonts["value"] $sc2 ($lx + $lw) $ry $vw $rowH "far"
+        $penL.Dispose()
+      }
 
-  # 第三行：BOSS 战口径。打大怪只剩一个目标，群体卡会明显掉价，
-  # 这一行单独列出来，别跟副标题抢地方。
-  $boss = New-Object System.Windows.Forms.Label
-  $boss.AutoSize = $false
-  $boss.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-  $boss.Font = $script:fontSub
-  $boss.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-  $boss.ForeColor = [System.Drawing.Color]::FromArgb(150, 163, 157)
-  $boss.Visible = $false
+      # ---- 底部常驻信息：一块小胶囊，不用 Label（Label 会拉出一条黑带）
+      if ($script:hintText) {
+        $fh = $script:fonts["hint"]
+        $sz = $g.MeasureString($script:hintText, $fh)
+        $cw = [single]($sz.Width + 20)
+        $chh = [single](22 * $sc)
+        $cyy = [single]($form.ClientSize.Height - $chh - 14)
+        $cp = New-RoundPath 16 $cyy $cw $chh 7
+        $cb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(198, 9, 13, 11))
+        $g.FillPath($cb, $cp)
+        $cb.Dispose()
+        Draw-Str $g $script:hintText $fh ([System.Drawing.Color]::FromArgb(255, 148, 168, 156)) 16 $cyy $cw $chh "center"
+        $cp.Dispose()
+      }
+    } catch {}
+})
 
-  $form.Controls.Add($main)
-  $form.Controls.Add($sub)
-  $form.Controls.Add($boss)
-  $script:badges += [pscustomobject]@{ Main = $main; Sub = $sub; Boss = $boss }
-}
-
-$hint = New-Object System.Windows.Forms.Label
-$hint.AutoSize = $false
-$hint.Font = $script:fontSub
-$hint.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-$hint.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-$hint.ForeColor = [System.Drawing.Color]::FromArgb(150, 160, 175)
-$hint.Visible = $false
-$form.Controls.Add($hint)
-$script:hint = $hint
+$script:hintText = ""        # 底部常驻信息（总DPS/乘区），也走自绘，不再用 Label
 
 # ---------------- 流派面板 ----------------
 # 一块常驻在屏幕右侧的小黑板：这条流派要哪些技能（学了没）、要哪些首饰
@@ -193,7 +361,7 @@ $script:panelOn = $true
 $script:panelSig = ""
 
 $script:panel = New-Object System.Windows.Forms.Panel
-$script:panel.BackColor = [System.Drawing.Color]::FromArgb(14, 18, 26)
+$script:panel.BackColor = [System.Drawing.Color]::FromArgb(13, 18, 16)
 $script:panel.Visible = $false
 $form.Controls.Add($script:panel)
 # Panel 默认单缓冲，内容一变就闪一下；开双缓冲后是「先画在内存里再整块贴上去」
@@ -208,12 +376,12 @@ $script:fPolRow = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](8
 $script:fPolNum = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](10 * $script:fontScale), [System.Drawing.FontStyle]::Bold)
 $script:fPolSmall = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](7.5 * $script:fontScale), [System.Drawing.FontStyle]::Regular)
 
-$script:brGold = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 214, 102))
-$script:brText = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(230, 234, 240))
-$script:brDim = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(132, 142, 158))
+$script:brGold = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 96, 226, 154))
+$script:brText = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 232, 242, 236))
+$script:brDim = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 150, 165, 157))
 $script:brOk = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(110, 225, 135))
-$script:brMiss = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(120, 130, 145))
-$script:penLine = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(46, 56, 72)), 1
+$script:brMiss = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 118, 130, 124))
+$script:penLine = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 44, 58, 51)), 1
 $script:sfRight = New-Object System.Drawing.StringFormat
 $script:sfRight.Alignment = [System.Drawing.StringAlignment]::Far
 $script:sfRight.LineAlignment = [System.Drawing.StringAlignment]::Near
@@ -233,6 +401,41 @@ function Rebuild-PanelFonts {
     $script:fPolNum = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](10 * $s), [System.Drawing.FontStyle]::Bold)
     $script:fPolSmall = New-Object System.Drawing.Font("Microsoft YaHei UI", [float](7.5 * $s), [System.Drawing.FontStyle]::Regular)
   } catch {}
+}
+
+# 字号在工具箱里改完要立刻生效，不用重启悬浮层
+function Set-FontScale([double]$scale) {
+  if ($scale -lt 0.5) { $scale = 0.5 }
+  if ($scale -gt 3.0) { $scale = 3.0 }
+  if ([math]::Abs($scale - $script:fontScale) -lt 0.001) { return }
+  $script:fontScale = $scale
+  try {
+    Build-Fonts $scale
+    Rebuild-PanelFonts
+    $script:panelSig = ""   # 逼下一帧按新字号重排
+    $script:dpsSig = ""
+    $script:bossSig = ""
+    $script:cardSig = @("", "", "", "")
+    $script:cards = @()
+    $form.Invalidate()
+    Log ("font scale -> " + $scale)
+  } catch {
+    Log ("font rebuild failed: " + $_.Exception.Message)
+  }
+}
+
+# 把四张卡片从屏幕上收掉（游戏最小化 / 切到后台 / 卡选完）
+function Clear-Cards {
+  $had = ($script:cards.Count -gt 0) -or [bool]$script:hintText
+  if ($script:cards.Count -gt 0) {
+    $script:cards = @()
+    $script:cardFullSig = ""
+  }
+  $script:hintText = ""
+  if ($had) {
+    try { $form.Invalidate() } catch {}
+  }
+  $script:anyShown = $false
 }
 
 function Measure-PanelH($b) {
@@ -338,13 +541,13 @@ foreach ($c in @(
     [System.Drawing.Color]::FromArgb(166, 114, 230))) {
   $script:rankBr += (New-Object System.Drawing.SolidBrush $c)
 }
-$script:brBoxBg = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(244, 16, 13, 8))
-$script:brBoxHead = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 40, 29, 16))
-$script:penBoxEdge = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 76, 58, 33)), 1
-$script:penGrip = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(90, 150, 124, 78)), 1
-$script:brBoxTitle = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 226, 194, 118))
-$script:brBoxDim = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 148, 136, 116))
-$script:brBoxX = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(170, 150, 122, 82))
+$script:brBoxBg = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(242, 13, 18, 16))
+$script:brBoxHead = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 22, 30, 26))
+$script:penBoxEdge = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 44, 58, 51)), 1
+$script:penGrip = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(120, 120, 150, 135)), 1
+$script:brBoxTitle = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 96, 226, 154))
+$script:brBoxDim = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 150, 165, 157))
+$script:brBoxX = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(190, 150, 165, 157))
 
 function Fmt-Dmg($v) {
   $n = 0.0
@@ -461,7 +664,7 @@ function New-StatWindow([string]$key, [string]$title) {
   $w.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
   $w.ShowInTaskbar = $false
   $w.TopMost = $true
-  $w.BackColor = [System.Drawing.Color]::FromArgb(16, 13, 8)
+  $w.BackColor = [System.Drawing.Color]::FromArgb(13, 18, 16)
   $w.Text = "AZS-Stat-" + $key
   $w.Tag = $key
   $w.MinimumSize = New-Object System.Drawing.Size ([int](150 * $script:fontScale)), ([int](56 * $script:fontScale))
@@ -562,7 +765,7 @@ function Attach-StatWindow($w) {
         $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
       } catch {}
       if ($null -eq $d) {
-        $g.Clear([System.Drawing.Color]::FromArgb(16, 13, 8))
+        $g.Clear([System.Drawing.Color]::FromArgb(13, 18, 16))
         return
       }
       Draw-StatBox $g $s.ClientSize.Width $s.ClientSize.Height $d.title $d.dps $d.rows $d.empty
@@ -730,12 +933,12 @@ $script:ctrlVisible = $true
 # ---- 缓存：让 tick 里「内容没变就一个控件都不碰」 ----
 $script:lastState = $null      # 上一次解析出来的 state.json
 $script:stateStamp = ""        # 文件大小 + 修改时间，用来判断要不要重新解析
-$script:badgeKey = @("", "", "", "")   # 四个徽标各自的内容指纹
+$script:cardFullSig = ""       # 四张卡片整体的内容指纹（变了才整屏重绘）
 $script:hintKey = ""
-$script:anyShown = $false      # 当前屏幕上到底有没有东西，避免反复设 Visible
+$script:anyShown = $false      # 当前屏幕上到底有没有东西
 $script:wasShownFlag = $false  # 上一次是否亮着，用来只在"刚灭"时记日志
 $script:activated = $false     # 只在第一次弹出时把焦点还给游戏
-$script:badgeWidth = [int](270 * $script:fontScale)
+$script:badgeWidth = [int](286 * $script:fontScale)
 $script:badgeHeight = [int](44 * $script:fontScale)
 
 $timer = New-Object System.Windows.Forms.Timer
@@ -755,6 +958,7 @@ $timer.Add_Tick({
         if ($null -ne $ctrl.enabled -and -not [bool]$ctrl.enabled) { $script:ctrlVisible = $false }
         if ($null -ne $ctrl.panel) { $script:panelOn = [bool]$ctrl.panel }
         if ($null -ne $ctrl.dps) { $script:dpsOn = [bool]$ctrl.dps }
+        if ($null -ne $ctrl.only_fg) { $script:onlyForeground = [bool]$ctrl.only_fg }
         if ($null -ne $ctrl.font_scale) { Set-FontScale ([double]$ctrl.font_scale) }
         if ($null -ne $ctrl.badge_width) {
           $script:badgeWidth = [int]([double]$ctrl.badge_width * $script:fontScale)
@@ -765,6 +969,17 @@ $timer.Add_Tick({
       }
     }
   } catch {}
+
+  # ---- 游戏没在前台 / 被最小化：一律不画 ----
+  # 这一步放在读 state 之前：省掉一次 JSON 解析，也保证「最小化后不留贴图」。
+  if (-not (Sync-GameWindow)) {
+    Clear-Cards
+    if ($script:glowRects.Count -gt 0) { $script:glowRects = @() }
+    Update-BuildPanel $null
+    Update-DpsPanel $null
+    $script:wasVisible = $false
+    return
+  }
 
   # ---- 读 state.json ----
   # 以前每个 tick 都无条件 ReadAllText + ConvertFrom-Json。这个文件带着两张伤害表，
@@ -785,11 +1000,7 @@ $timer.Add_Tick({
   } catch {}
 
   if ($null -eq $state) {
-    if ($script:anyShown) {
-      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
-      $script:hint.Visible = $false
-      $script:anyShown = $false
-    }
+    Clear-Cards
     Update-BuildPanel $null
     Update-DpsPanel $null
     return
@@ -798,11 +1009,7 @@ $timer.Add_Tick({
   if ($state.status -eq "closed") {
     # 游戏已退出：只隐藏，不退出。以前这里 Close() 会因读到上一次运行残留的
     # status=closed 而让整个悬浮层自杀。
-    if ($script:anyShown) {
-      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
-      $script:hint.Visible = $false
-      $script:anyShown = $false
-    }
+    Clear-Cards
     Update-BuildPanel $null
     Update-DpsPanel $null
     $script:wasVisible = $false
@@ -822,13 +1029,7 @@ $timer.Add_Tick({
     $script:wasShownFlag = $true
   }
   if (-not $show) {
-    if ($script:anyShown) {
-      foreach ($b in $script:badges) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
-      $script:hint.Visible = $false
-      $script:anyShown = $false
-      # 徽标藏起来之后清掉缓存，下次弹出来时按当前内容重排一次
-      for ($k = 0; $k -lt 4; $k++) { $script:badgeKey[$k] = "" }
-    }
+    Clear-Cards
     if ($script:glowRects.Count -gt 0) {
       foreach ($r in $script:glowRects) { try { $form.Invalidate($r) } catch {} }
       $script:glowRects = @()
@@ -840,65 +1041,39 @@ $timer.Add_Tick({
   $w = $form.ClientSize.Width
   $h = $form.ClientSize.Height
   $bw = $script:badgeWidth
-  $bh = $script:badgeHeight
-  $sh = [int](19 * $script:fontScale)
+  $cardH = [int]($script:badgeHeight + 68 * $script:fontScale)
 
   $slots = @($state.slots)
   $newGlow = @()
+  $newCards = @()
   for ($i = 0; $i -lt 4; $i++) {
-    $b = $script:badges[$i]
     if ($i -lt $slots.Count) {
       $s = $slots[$i]
       $cx = [int]($w * [double]$s.x)
       $cy = [int]($h * [double]$s.y)
-      # 预设命中：在徽标外面套一圈呼吸金边
+      $x0 = $cx - [int]($bw / 2)
+      # 预设命中：卡片外面套一圈呼吸金边
       if ([int]$s.preset -gt 0) {
-        $newGlow += New-Object System.Drawing.Rectangle `
-          (($cx - [int]($bw / 2)) - 4), ($cy - 4), ($bw + 8), ($bh + $sh * 2 + 8)
+        $newGlow += New-Object System.Drawing.Rectangle ($x0 - 3), ($cy - 3), ($bw + 6), ($cardH + 6)
       }
-      $main = [string]$s.main
-      $note = [string]$s.note
-      $bossLine = [string]$s.boss
-      $bossKind = [string]$s.boss_kind
-      $best = [bool]$s.best
-      $spec = [string]$s.spec
-      # 只有内容真的变了才动控件。WinForms 每次 set Bounds/Text 都会触发重排 +
-      # 重绘，而这个 form 是覆盖全屏的分层窗口，一次重绘就是整整一屏。
-      $key = "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}" -f $cx, $cy, $main, $note, $best, ([string]$s.pct), $spec, $bossLine
-      if ($script:badgeKey[$i] -ne $key) {
-        $script:badgeKey[$i] = $key
-        $b.Main.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), $cy, $bw, $bh
-        $b.Sub.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), ($cy + $bh), $bw, $sh
-        $b.Boss.Bounds = New-Object System.Drawing.Rectangle (($cx - [int]($bw / 2))), ($cy + $bh + $sh), $bw, $sh
-        $b.Main.Text = $main
-        $b.Sub.Text = $note
-        $b.Boss.Text = $bossLine
-        # 有首领特化 -> 荧光绿；纯群体卡打 BOSS 掉价 -> 橙；其余灰色
-        if ($bossKind -eq "tag") {
-          $b.Boss.ForeColor = [System.Drawing.Color]::FromArgb(61, 217, 127)
-        } elseif ($bossKind -eq "weak") {
-          $b.Boss.ForeColor = [System.Drawing.Color]::FromArgb(224, 168, 92)
-        } else {
-          $b.Boss.ForeColor = [System.Drawing.Color]::FromArgb(140, 152, 146)
-        }
-        if ($bossLine -eq "") { $b.Boss.Visible = $false } else { $b.Boss.Visible = $true }
-        # 流派核心给一块暗金底 + 金字，跟其它卡一眼分开
-        if ($spec -eq "must") {
-          $b.Main.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
-          $b.Sub.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
-          $b.Boss.BackColor = [System.Drawing.Color]::FromArgb(82, 60, 16)
-          $b.Main.ForeColor = [System.Drawing.Color]::FromArgb(255, 214, 102)
-        } else {
-          $b.Main.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-          $b.Sub.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-          $b.Boss.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 30)
-          $b.Main.ForeColor = Get-Color $s.pct $best
-        }
+      $newCards += [pscustomobject]@{
+        X = $x0; Y = $cy; W = $bw; H = $cardH
+        Grade = [string]$s.grade; GKey = [string]$s.grade_key
+        Global = [string]$s.global_line
+        Boss = [string]$s.boss; BossKind = [string]$s.boss_kind
+        Spec = [string]$s.spec_line; SKind = [string]$s.spec_kind
       }
-      if (-not $b.Main.Visible) { $b.Main.Visible = $true; $b.Sub.Visible = $true }
-    } else {
-      if ($b.Main.Visible) { $b.Main.Visible = $false; $b.Sub.Visible = $false; $b.Boss.Visible = $false }
     }
+  }
+  # 只在内容真的变了才重绘整屏（这个 form 是覆盖全屏的分层窗口，
+  # 每次重画都是一整屏的代价；选卡期间内容稳定，实际很少触发）
+  $sig = ($newCards | ForEach-Object {
+      "{0},{1},{2},{3},{4},{5},{6}" -f $_.X, $_.Y, $_.Grade, $_.GKey, $_.Global, $_.Boss, $_.Spec
+    }) -join "#"
+  if ($script:cardFullSig -ne $sig) {
+    $script:cardFullSig = $sig
+    $script:cards = $newCards
+    try { $form.Invalidate() } catch {}
   }
 
   # ---- 外发光：亮度每 400ms 换一档，只在需要时重画那一小块 ----
@@ -919,10 +1094,9 @@ $timer.Add_Tick({
   $hintText = "总DPS " + [string]$state.total_dps + "    伤害x" + [string]$state.stats.dmg + "  冷却x" + [string]$state.stats.cd + "  暴击" + [string]([math]::Round([double]$state.stats.crit * 100)) + "%" + $extra
   if ($script:hintKey -ne $hintText) {
     $script:hintKey = $hintText
-    $script:hint.Bounds = New-Object System.Drawing.Rectangle 12, ($h - 42), 580, 22
-    $script:hint.Text = $hintText
+    $script:hintText = $hintText
+    try { $form.Invalidate() } catch {}
   }
-  $script:hint.Visible = $true
   $script:anyShown = $true
 
   if (-not $script:wasVisible) {

@@ -557,6 +557,8 @@ def build_ctx():
         talents=talents,
         settings=SETTINGS,
         gear=ST.gear,
+        # 技能面板：伤害榜还没这个技能时，用它算「大概占多少」
+        panel=ST.spells,
     )
 
 
@@ -642,20 +644,61 @@ def boss_line(r):
     bp = r.get("boss_pct")
     gp = r.get("pct")
     if bp is None:
-        txt = "BOSS ?"
+        txt = "?"
         kind = ""
     elif bp <= 0.05:
-        txt = "BOSS 0%·只吃多目标"
+        txt = "0%·只吃多目标"
         kind = "weak"
     else:
-        txt = ("BOSS +%.1f%%" if r.get("confident") else "BOSS ≈+%.1f%%") % bp
+        txt = ("+%.1f%%" if r.get("confident") else "≈+%.1f%%") % bp
         # 比小怪战低 3 个点以上 = 群体卡，进 BOSS 战明显掉价
         kind = "weak" if (gp is not None and bp < gp - 3.0) else ""
 
     if tags:
         txt += "·" + "/".join(tags)
         kind = "tag"
-    return fit_note(txt, max_px=214), kind
+    return fit_note(txt, max_px=196), kind
+
+
+def grade_of(pct, conf, util):
+    """第一行「综合评价」：把百分比翻译成人话
+
+    门槛是按实测调的：爆炸陷阱 ≈14%、多重射击 ≈23% 属于「看到就拿」，
+    常见的 +2~3% 小强化落在「可以考虑」，纯生存卡单独走「非输出向」。
+    confident 留着给以后的分档用（现在只影响百分比前面的 ≈）。
+    """
+    if pct is None:
+        return "无法评估", "unknown"
+    if util:
+        return "非输出向", "util"
+    if pct >= 15.0:
+        return "强烈推荐", "s"
+    if pct >= 8.0:
+        return "值得一拿", "a"
+    if pct >= 3.0:
+        return "可以考虑", "b"
+    if pct > 0.05:
+        return "聊胜于无", "c"
+    return "不建议", "d"
+
+
+def spec_line_of(spec, has_pre, basis):
+    """第四行：这张卡跟「当前流派」的关系
+
+    spec 来自 spec_hit / preset_rank：must = 流派核心，opt = 可选项。
+    没设流派时不能写「非本流派」——那会让人以为漏配了，直接说未设流派。
+    """
+    if spec == "must":
+        return ("预设核心" if has_pre else "本流派 · 核心"), "must"
+    if spec == "opt":
+        return ("预设可选" if has_pre else "本流派 · 可选"), "opt"
+    if not SETTINGS.get("spec") and not has_pre:
+        return "未设流派", ""
+    if has_pre:
+        return "不在预设里", ""
+    if basis == "pet":
+        return "非本流派 · 宠物线", ""
+    return "非本流派", ""
 
 
 def note_unknown(choice, note):
@@ -902,6 +945,7 @@ def build_state():
                 "boss_pct": None if bpct is None else round(bpct, 1),
                 "note": note,
                 "confident": conf,
+                "basis": MODEL.card_basis(ch, ability_by_name),
             })
         known = [r["pct"] for r in results if r["pct"] is not None]
         best = max(known) if known else None
@@ -918,9 +962,10 @@ def build_state():
             else:
                 r["spec"] = spec_hit(r.get("name"))
         must = [r for r in results if r["spec"] == "must"]
-        if must:
-            cand = [r["pct"] for r in must if r["pct"] is not None]
-            best = max(cand) if cand else None
+        # ★ 只表示「这三张里收益最高」，不再被流派核心垄断：
+        # 流派归属已经由第四行（◆ / 本流派·核心）说清楚了，
+        # 以前让核心卡强行拿 ★，会出现「★ 聊胜于无」这种自相矛盾的徽标。
+        _ = must
         n = len(results)
         step = cfg.get("card_step", 0.1958)
         for i, r in enumerate(results):
@@ -934,20 +979,30 @@ def build_state():
             # 用「—」而不是「0%」，一眼能和"有伤害但很小"区分开。
             r["util"] = (r["pct"] == 0.0) and (not r["confident"]) and (
                 "非伤害" in r["note"] or "治疗/防御" in r["note"])
+            # ---- 第一行：综合评价（字最大，一眼决定拿不拿）----
+            r["grade"], r["grade_key"] = grade_of(r["pct"], r["confident"], r["util"])
+            if r["spec"] == "must":
+                r["grade"] = "◆ " + r["grade"]
+            elif r["best"] and (r["pct"] or 0.0) >= 8.0:
+                r["grade"] = "★ " + r["grade"]
+            # ---- 第二行：全局增伤（这把牌对总输出的提升）----
             if r["pct"] is None:
-                r["main"] = "?"
+                r["pct_text"] = "?"
             elif r["util"]:
-                r["main"] = "—"
+                r["pct_text"] = "—"
             elif r["pct"] <= 0.05:
-                r["main"] = "0%"
+                r["pct_text"] = "0%"
             else:
-                r["main"] = ("+%.1f%%" % r["pct"]) if r["confident"] else ("≈+%.1f%%" % r["pct"])
-            if r["spec"] == "must" and r["pct"] is not None and not r["util"]:
-                # 预设命中：标在数字前面，一眼能看出「这张是冲我来的」
-                r["main"] = ("★ 预设 " if has_pre else "★ 流派 ") + r["main"]
-            elif r["best"]:
-                r["main"] = "★ " + r["main"]
+                r["pct_text"] = ("+%.1f%%" % r["pct"]) if r["confident"] \
+                    else ("≈+%.1f%%" % r["pct"])
+            # 第二行只给数值，行首的「全局」由悬浮层画（不然会出现「全局 全局 +9%」）
+            r["global_line"] = r["pct_text"]
+            # ---- 第三行：BOSS 增伤 ----
             r["boss"], r["boss_kind"] = boss_line(r)
+            # ---- 第四行：流派归属 ----
+            r["spec_line"], r["spec_kind"] = spec_line_of(
+                r["spec"], bool(has_pre), r.get("basis") or "")
+            r["main"] = r["grade"]      # 旧字段别名（replay_test 还在读）
             slots.append(r)
 
     # 为什么没显示：出问题时看一眼 brain.err 就知道卡在哪一步，
@@ -973,7 +1028,8 @@ def build_state():
         "status": "picker" if visible else ("waiting" if not ST.stats else "idle"),
         "level": (ST.offer or {}).get("level"),
         "total_dps": round(total_dps(), 1),
-        "stats": {k: ST.stats.get(k) for k in ("dmg", "cd", "crit", "cm", "dots", "doth", "echo")},
+        "stats": {k: ST.stats.get(k) for k in
+                  ("dmg", "cd", "crit", "cm", "dots", "doth", "echo", "pet")},
         "class": ST.cls,
         "run_level": ST.run.get("lvl"),
         "slots": slots,

@@ -49,6 +49,11 @@ SPELL_TABLE = {}
 for _x in _load("spell_table.json", []):
     if _x.get("zh"):
         SPELL_TABLE[_x["zh"]] = _x
+# 技能面板（AZSSPELLS）用的是英文 key（auto_shot），另建一张 key → 行 的表
+SPELL_BY_KEY = {}
+for _x in SPELL_TABLE.values():
+    if _x.get("key"):
+        SPELL_BY_KEY[str(_x["key"]).lower()] = _x
 
 ABILITIES = _load("abilities.json", {})
 ABIL_BY_NAME = {}
@@ -124,6 +129,13 @@ EXTRA_TARGET_RATIO = {
     "瞄准射击": 0.60,
 }
 
+# 宠物/召唤物的名字。伤害榜里宠物是单独一条（地狱猎犬 / 虚空行者…），
+# 卡面写「恶魔造成的伤害提高」时，只能靠这两张表把占比对上。
+PET_WORDS = ("恶魔", "宠物", "召唤物", "爪牙", "仆从", "守卫", "地狱猎犬",
+             "虚空行者", "魅魔", "小鬼", "地狱火", "末日守卫", "食尸鬼")
+# 「所有伤害提高」这类卡：作用对象是全部输出，不是某一个技能
+GLOBAL_WORDS = ("所有伤害", "全部伤害", "整体伤害", "全局伤害", "所有输出")
+
 # 职业档案：决定哪些技能按 DoT 结算、哪些天赋默认开启
 PROFILES = {
     "paladin": {
@@ -157,7 +169,7 @@ class Ctx(object):
     """一次选卡时的 build 快照"""
 
     def __init__(self, stats=None, lvl=1, cls="", meter=None, share_fn=None,
-                 talents=None, settings=None, gear=None):
+                 talents=None, settings=None, gear=None, panel=None):
         s = stats or {}
         self.stats = s
         self.lvl = int(lvl or 1)
@@ -168,6 +180,9 @@ class Ctx(object):
         # 身上穿的项链/戒指/饰品：{"amulet": ("corruption", 7), ...}
         # 装备卡只能戴一件，换装时要知道"现在那件是几级"
         self.gear = gear or {}
+        # 技能面板（AZSSPELLS）：{"auto_shot": {"rank": 3, ...}}。
+        # 伤害榜还没跑起来时，靠它算「这个技能大概占多少」。
+        self.panel = panel or {}
 
         self.dmg = _f(s.get("dmg"), 1.0, 1.0)
         self.cd = _f(s.get("cd"), 1.0, 0.05)
@@ -179,6 +194,8 @@ class Ctx(object):
         self.doth = _f(s.get("doth"), 0.0)
         self.dotd = _f(s.get("dotd"), 0.0)
         self.dots = int(_f(s.get("dots"), 0) or 0)
+        # 宠物伤害占比：客户端 AZS 那行里的 pet 字段（0~1）
+        self.pet = min(1.0, max(0.0, _f(s.get("pet"), 0.0)))
 
         prof = PROFILES.get(self.cls, NEUTRAL_PROFILE)
         self.profile = prof
@@ -228,6 +245,62 @@ class Ctx(object):
         if tot > 0:
             return min(1.0, tot)
         return 0.0
+
+    # -- 宠物 / 召唤物的伤害占比
+    def pet_share(self):
+        """宠物这条线占多少总伤害。
+
+        优先用客户端上报的 pet 字段；它没填时（老版本 / 刚开局）再按名字
+        从伤害榜里捞「地狱猎犬」「虚空行者」这类条目。两边都没有 = 0。
+        """
+        if self.pet > 0.005:
+            return min(1.0, self.pet)
+        tot = 0.0
+        for r in self.meter:
+            n = r.get("name") or ""
+            if any(w in n for w in PET_WORDS):
+                tot += r.get("share") or 0.0
+        return min(1.0, tot)
+
+    # -- 技能面板口径（没伤害榜时的兜底权重）
+    def _panel_value(self, name, aoe=True):
+        """一个技能按「面板」算有多强：面板伤害 / 冷却 × 目标 × 等级系数"""
+        key = (name or "").strip()
+        row = SPELL_TABLE.get(key) or SPELL_BY_KEY.get(key.lower()) or {}
+        dmg = _f(row.get("dmg"), 0.0)
+        if dmg <= 0:
+            return 0.0
+        cd = max(0.35, _f(row.get("cd"), 3.0))
+        cnt = max(1.0, _f(row.get("cnt"), 1.0)) if aoe else 1.0
+        rank = 1.0
+        try:
+            rank = float((self.panel.get(name) or {}).get("rank") or 1.0)
+        except (TypeError, ValueError):
+            rank = 1.0
+        # 卡面每一级大约 +22%：只用来拉开技能之间的差距，不做绝对 DPS
+        return dmg * cnt / cd * (1.0 + 0.22 * max(0.0, rank - 1.0))
+
+    def panel_share(self, name, aoe=True):
+        """这个技能按面板估算能占总伤害多少（0~1）。
+
+        伤害榜里还没有它时（刚开一局、刚换职业、技能刚学）用它代替
+        「一律 3%」——面板伤害高的技能本来就该排在前面。
+        """
+        v = self._panel_value(name, aoe)
+        if v <= 0:
+            return 0.0
+        key = (name or "").strip()
+        sid = (SPELL_TABLE.get(key) or SPELL_BY_KEY.get(key.lower()) or {}).get("sid")
+        tot = 0.0
+        for n in (self.panel or {}):
+            k2 = (n or "").strip()
+            sid2 = (SPELL_TABLE.get(k2) or SPELL_BY_KEY.get(k2.lower()) or {}).get("sid")
+            if sid is not None and sid2 == sid:
+                continue                       # 同一个技能（中英名各来一次）不重复累加
+            tot += self._panel_value(n, aoe)
+        if tot <= 0:
+            return 0.0
+        return min(1.0, v / (tot + v))
 
 
 def _f(v, default, lo=None):
@@ -346,14 +419,24 @@ def consume_magic_ratio(name, ctx, dur_mult):
 
 # ---------------------------------------------------------------- 卡面解析
 class Effect(object):
-    __slots__ = ("stat", "delta", "before", "after", "label")
+    """一条卡面效果。
 
-    def __init__(self, stat, delta, before=None, after=None, label=""):
+    scope 只对 damage 有意义，说明这条加成作用在谁身上：
+      auto   —— 看卡面有没有点名技能，有就是 skill，没有就是 global
+      skill  —— 只加某个技能（卡面点名）
+      global —— 全伤害（「所有伤害提高」）
+      pet    —— 只加宠物/恶魔/召唤物（「恶魔造成的伤害提高40%」）
+    """
+
+    __slots__ = ("stat", "delta", "before", "after", "label", "scope")
+
+    def __init__(self, stat, delta, before=None, after=None, label="", scope="auto"):
         self.stat = stat
         self.delta = delta
         self.before = before
         self.after = after
         self.label = label
+        self.scope = scope
 
     def __repr__(self):
         return "Effect(%s,%+.3g,%s,%s)" % (self.stat, self.delta, self.before, self.after)
@@ -449,6 +532,18 @@ PLAIN_PATTERNS = [
 ]
 
 
+def _damage_scope(line):
+    """这条「伤害提高」作用在谁身上：全局 / 宠物 / 看卡面点名技能"""
+    s = line or ""
+    for w in GLOBAL_WORDS:
+        if w in s:
+            return "global"
+    for w in PET_WORDS:
+        if w in s:
+            return "pet"
+    return "auto"
+
+
 def parse_line(line):
     """解析一行卡面，返回 [Effect]。有 » 就用差值，没有就按正则取显示值。"""
     line = (line or "").strip()
@@ -492,6 +587,17 @@ def parse_line(line):
         mm = re.search(r"([+\-]?\d+)\s*层", line)
         if mm:
             return [Effect("dot_stacks", float(mm.group(1)), None, None, line)]
+
+    # 「造成的伤害提高40%」——数字在动词后面，旧正则（伤害紧贴数字）整条抓不到，
+    # 支配恶魔、恶魔增效这类卡以前直接落到「特殊机制·无公式」。
+    md = re.search(r"伤害\s*(?:提高|提升|增加|加成|增强)\s*([+\-]?\d+(?:\.\d+)?)\s*%", line)
+    if md:
+        return [Effect("damage", float(md.group(1)), None, None, line,
+                       _damage_scope(line))]
+    md = re.search(r"([+\-]?\d+(?:\.\d+)?)\s*%\s*(?:的)?(?:额外)?伤害(?:加成|提高|提升|增加)", line)
+    if md:
+        return [Effect("damage", float(md.group(1)), None, None, line,
+                       _damage_scope(line))]
 
     out = []
     seen = set()
@@ -553,26 +659,30 @@ def eval_effects(effects, ctx, subj, share):
         st, d = e.stat, e.delta
         if st == "damage":
             dmg_related = True
-            if e.before is not None and subj:
+            scope = e.scope if e.scope not in ("", "auto") else (
+                "skill" if subj else "global")
+            if e.before is not None and subj and scope == "skill":
                 b, a = e.before, e.after
                 ratio *= (100.0 + a) / (100.0 + b)
                 local_pool = b / 100.0          # 只存「加成部分」，池子 = 1 + 它
                 notes.append("伤害+%g/%g" % (a - b, 100 + b))
-            elif subj:
+            else:
                 # 无箭头时卡面只给一个「+X% 伤害」，它是加进伤害池的。
                 # 池子至少要算上已经堆起来的全局伤害（ctx.dmg），
                 # 否则「+152%」会被当成 ×2.52 —— 实际在 247% 的池里只有 ×1.62。
                 # （2026-11-01 用户截图：瘟疫坠饰被算成 +340%，虚高约 15 倍）
                 pool = max(ctx.dmg, 1.0 + (local_pool if local_pool is not None
-                                           else local_damage_pool(subj)))
+                                           else (local_damage_pool(subj) if subj else 0.0)))
                 ratio *= 1.0 + d / 100.0 / pool
-                if pool > 1.001:
+                if scope == "pet":
+                    notes.append("恶魔+%g%%" % d)
+                elif scope == "global":
+                    notes.append("全局+%g%%/池%.0f%%" % (d, (pool - 1.0) * 100)
+                                 if pool > 1.001 else "全局+%g%%" % d)
+                elif pool > 1.001:
                     notes.append("+%g%%伤害/池%.0f%%" % (d, (pool - 1.0) * 100))
                 else:
                     notes.append("+%g%%伤害" % d)
-            else:
-                ratio *= 1.0 + d / 100.0 / ctx.dmg
-                notes.append("伤害+%g/%g" % (d, round(ctx.dmg * 100)))
         elif st == "cooldown":
             dmg_related = True
             if subj and (is_dot(subj) or subj in ctx.profile["dots"]
@@ -1101,6 +1211,28 @@ def _swap_gain(ctx, choice, name, subj, share, solo=False):
 SOLO_DEAD_STATS = ("targets", "area")
 
 
+def card_basis(choice, abil_lookup):
+    """这张卡的增伤是按什么口径算的：global（全局）/ pet（宠物）/ skill（点名技能）
+
+    悬浮层的第四行用它决定写「本流派」还是「全局口径」。
+    """
+    try:
+        name = (choice.get("name") or "").strip()
+        text = choice.get("lines") or choice.get("text") or ""
+        effects = [e for e in parse_card(text) if e.stat == "damage"]
+        if not effects:
+            return ""
+        if any(e.scope == "pet" for e in effects):
+            return "pet"
+        if any(e.scope == "global" for e in effects):
+            return "global"
+        subj = subject_skill(name, text, abil_lookup) or (
+            name if abil_lookup(name) else None)
+        return "skill" if subj else "global"
+    except Exception:
+        return ""
+
+
 def evaluate_choice(choice, ctx, abil_lookup, solo=False):
     """评估一张卡。返回 (pct, note, confident, dmg_related)
 
@@ -1133,20 +1265,30 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
 
     share = None
     fb = False
-    if subj:
+    pet_card = any(e.stat == "damage" and e.scope == "pet" for e in effects)
+    if pet_card:
+        # 「恶魔造成的伤害提高 40%」：只作用在宠物那部分输出上。
+        # 客户端没上报 pet 占比时退回全局口径（宁可高估，也别显示「算不出」）。
+        share = ctx.pet_share()
+        fb = True
+        if share <= 0.001:
+            share = 1.0
+    elif subj:
         share = ctx.share(subj)
         if share is None:
             if is_damage_skill(subj):
-                # 该技能这一把还没打出伤害：给个保守的「次要技能」占比。
-                # 以前这里是 8%，结果「献祭 +50% 伤害」被算成 +4.0%，
-                # 反过来盖过主力技能的「腐蚀术 +5%」（占 44% → +2.2%）。
-                # 没打过伤害的技能就是没在贡献，宁可低估也不能抢了主技能的位置。
-                share = 0.03
+                # 该技能这一把还没打出伤害：先用技能面板算个权重（伤害高的排前面），
+                # 面板也拿不到时才回退到保守的 3%。
+                ps = ctx.panel_share(subj)
+                share = ps if ps > 0.02 else 0.03
                 fb = True
             else:
                 share = 0.0       # 治疗/免疫类技能：加它也不会涨 DPS
 
     ratio, notes, conf, dmg_related = eval_effects(effects, ctx, subj, share)
+
+    if pet_card and share >= 0.999:
+        notes.append("无宠物数据·按全局")
 
     if bounces:
         conf = False
@@ -1175,7 +1317,12 @@ def evaluate_choice(choice, ctx, abil_lookup, solo=False):
 
     if share is not None:
         pct = (ratio - 1.0) * 100.0 * share
-        head = ("估%.0f%%×" % (share * 100)) if fb else ("占%.0f%%×" % (share * 100))
+        if share >= 0.999:
+            head = ""                                   # 全局口径：不用再说占比
+        elif pet_card:
+            head = "宠物%.0f%%×" % (share * 100)
+        else:
+            head = ("估%.0f%%×" % (share * 100)) if fb else ("占%.0f%%×" % (share * 100))
         lost, lost_name = _lost_gear_share(ctx, name)
         if lost > 0:
             # 换装卡只能戴一件：新卡上阵的代价是旧卡那条伤害整条消失

@@ -13,7 +13,7 @@ import azs_theme as T
 # 卡片高度按「默认窗口 601 高」倒推：标题区占掉约 130，底下要留一口气，
 # 所以 400 会顶到窗口边被切掉半行，374 刚好露全。
 CARD_H = 390
-TABLE_H = 254
+TABLE_H = 222
 
 
 def _preset(tk):
@@ -57,7 +57,7 @@ def _board_rows():
     """BOSS 强度榜：只依赖客户端技能表，不需要打怪数据"""
     try:
         import azs_strength as S
-        return S.board(limit=14)
+        return S.board(limit=8)
     except Exception:
         return []
 
@@ -143,7 +143,7 @@ def _editor(tk, p):
                     T.set_font(h1, "small")
                     dpg.add_spacer(height=5)
                     dpg.add_input_text(tag="preset_skills", multiline=True,
-                                       width=-1, height=228,
+                                       width=-1, height=170,
                                        default_value="\n".join(p.get("skills") or []),
                                        hint="例：\n腐蚀术\n痛苦诅咒\n灵魂之火")
                 with dpg.table_cell():
@@ -151,7 +151,7 @@ def _editor(tk, p):
                     T.set_font(h2, "small")
                     dpg.add_spacer(height=5)
                     dpg.add_input_text(tag="preset_gear", multiline=True,
-                                       width=-1, height=228,
+                                       width=-1, height=170,
                                        default_value="\n".join(p.get("gear") or []),
                                        hint="例：\n哈卡之眼")
 
@@ -174,16 +174,23 @@ def _board():
             dpg.add_text("技能表未加载", color=T.C_TEXT_FAINT)
             return
         top = rows[0]["solo"] or 1.0
-        with dpg.table(header_row=True, row_background=False,
+        # header_row 关掉、表头自己拿一行数据行来画：
+        # DPG 的表头行在 height 受限时会和第一行数据挤在同一个 y 上，
+        # 两行文字叠在一起根本看不清。
+        with dpg.table(header_row=False, row_background=True,
                        borders_innerH=True, borders_innerV=False,
                        borders_outerH=False, borders_outerV=False,
-                       scrollY=True, height=TABLE_H, width=-1,
+                       scrollY=False, height=TABLE_H, width=-1,
                        policy=dpg.mvTable_SizingStretchProp,
                        tag="preset_board"):
-            dpg.add_table_column(label="技能", init_width_or_weight=1.7)
-            dpg.add_table_column(label="单体", init_width_or_weight=0.6)
-            dpg.add_table_column(label="群体", init_width_or_weight=0.6)
-            dpg.add_table_column(label="打BOSS", init_width_or_weight=1.2)
+            dpg.add_table_column(init_width_or_weight=1.7)
+            dpg.add_table_column(init_width_or_weight=0.6)
+            dpg.add_table_column(init_width_or_weight=0.6)
+            dpg.add_table_column(init_width_or_weight=1.2)
+            with dpg.table_row():
+                for head in ("技能", "单体", "群体", "打BOSS"):
+                    hh = dpg.add_text(head, color=T.C_TEXT_FAINT)
+                    T.set_font(hh, "tiny")
             for r in rows:
                 with dpg.table_row():
                     col = T.C_GOLD if r["tags"] else T.C_TEXT

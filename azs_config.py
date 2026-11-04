@@ -93,7 +93,7 @@ DEFAULTS = {
         "enabled": True,
         "visible": True,
         "font_scale": 1.0,
-        "badge_width": 220,
+        "badge_width": 286,
         "badge_height": 44,
         "badge_y": 0.222,
         "card_step": 0.1958,
@@ -102,6 +102,9 @@ DEFAULTS = {
         "panel": True,
         # 游戏内「伤害统计」：左侧常驻，每个技能一行，伤害 + 占比
         "dps": True,
+        # 只在游戏位于前台时显示：切到浏览器/桌面就自动收起来，
+        # 不再出现「游戏最小化了贴图还赖在屏幕上」
+        "only_fg": True,
         # 当前选中的流派（builds.json 里的 id），空字符串表示不启用
         "spec": "",
     },
@@ -237,7 +240,11 @@ class Config:
         d = self.data
         ov = d.setdefault("overlay", {})
         ov["font_scale"] = _clamp(_num(ov.get("font_scale"), 1.0), 0.6, 2.0)
-        ov["badge_width"] = _clamp(_num(ov.get("badge_width"), 220), 120, 520)
+        # 四行徽标（综合评价 / 全局 / BOSS / 流派）比旧的两行宽：
+        # 旧配置里的 220 会把右列数字挤没，这里一次性提到 286
+        if _num(ov.get("badge_width"), 0) < 240:
+            ov["badge_width"] = 286
+        ov["badge_width"] = _clamp(_num(ov.get("badge_width"), 286), 240, 520)
         ov["badge_height"] = _clamp(_num(ov.get("badge_height"), 44), 24, 120)
         ov["badge_y"] = _clamp(_num(ov.get("badge_y"), 0.222), 0.02, 0.9)
         ov["card_step"] = _clamp(_num(ov.get("card_step"), 0.1958), 0.05, 0.6)
@@ -426,6 +433,7 @@ class Config:
             "opacity": float(ov.get("opacity", 0.95)),
             "panel": bool(ov.get("panel", True)),
             "dps": bool(ov.get("dps", True)),
+            "only_fg": bool(ov.get("only_fg", True)),
             "updated": time.time(),
         }
         if isinstance(extra, dict):

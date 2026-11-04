@@ -125,65 +125,81 @@ def build_home(tk, parent):
             pad()
             with dpg.group():
                 big_title("开始游戏", "")
-                dpg.add_spacer(height=2)
-                hint("从工具箱点「开始」才会带上调试参数；直接开游戏插件读不到数据。",
+                dpg.add_spacer(height=3)
+                hint("先从工具箱点「开始」才会带上调试参数；直接开游戏，插件读不到数据。",
                      wrap=760)
-        dpg.add_spacer(height=6)
+        dpg.add_spacer(height=16)
 
-        # ---- 卡 1：运行状态（参考图那种「标题 + 列表行」）----
-        with card(178):
-            card_head("运行状态", "工具箱没开时游戏也起不来")
-            rule()
-            _row_table([
-                ("游戏", "home_game", "跟着工具箱一起起停"),
-                ("数据大脑", "home_brain", "读战斗记录、算收益"),
-                ("悬浮层", "home_overlay", "屏幕上的收益徽标"),
-            ])
+        # 两栏：左边看状态，右边动手。以前全是一列往下堆，右半边全空着。
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                       width=-1, pad_outerX=True,
+                       borders_innerV=False, borders_innerH=False,
+                       borders_outerH=False, borders_outerV=False,
+                       scrollX=False, scrollY=False) as tb:
+            dpg.bind_item_theme(tb, _cell_theme(16))
+            dpg.add_table_column(init_width_or_weight=1.35)
+            dpg.add_table_column(init_width_or_weight=1.0)
+            with dpg.table_row():
+                with dpg.table_cell():
+                    with card(276):
+                        card_head("运行状态", "工具箱没开时游戏也起不来")
+                        rule()
+                        _row_table([
+                            ("游戏", "home_game", "跟着工具箱一起起停"),
+                            ("数据大脑", "home_brain", "读战斗记录、算收益"),
+                            ("悬浮层", "home_overlay", "屏幕上的收益徽标"),
+                            ("预设方案", "home_profile", "选卡提示按这套打分"),
+                        ])
+                        dpg.add_spacer(height=4)
+                        hint("徽标会跟着游戏窗口走，最小化或切后台自动收起。", wrap=430)
+                with dpg.table_cell():
+                    with card(276):
+                        card_head("快速开始", "开一局")
+                        rule()
+                        with dpg.group(horizontal=True):
+                            dpg.add_spacer(width=20)
+                            b = dpg.add_button(label="   开 始 游 戏   ", height=44, width=-1,
+                                               callback=lambda: tk.action_start())
+                            dpg.bind_item_theme(b, T.accent_button_theme())
+                        dpg.add_spacer(height=8)
+                        with dpg.group(horizontal=True):
+                            dpg.add_spacer(width=20)
+                            dpg.add_button(label=" 停止 ", height=34, width=112,
+                                           callback=lambda: tk.action_stop())
+                            dpg.add_spacer(width=8)
+                            dpg.add_button(label=" 重启 ", height=34, width=112,
+                                           callback=lambda: tk.action_restart())
+                        dpg.add_spacer(height=8)
+                        with dpg.group(horizontal=True):
+                            dpg.add_spacer(width=20)
+                            dpg.add_button(label=" 存档修改器 ", height=34, width=-1,
+                                           callback=lambda: tk.open_save_editor())
+
 
         dpg.add_spacer(height=12)
 
-        # ---- 卡 2：当前方案 + 操作 ----
+        # 运行信息压成一条四格数据带：标签在上、值在下，比一行灰字好读
         with card(96):
-            with dpg.group(horizontal=True):
-                dpg.add_spacer(width=20)
-                b = dpg.add_button(label="   开 始   ", height=42, width=132,
-                                   callback=lambda: tk.action_start())
-                dpg.bind_item_theme(b, T.accent_button_theme())
-                dpg.add_spacer(width=8)
-                dpg.add_button(label="  停止后台  ", height=42,
-                               callback=lambda: tk.action_stop())
-                dpg.add_spacer(width=8)
-                dpg.add_button(label="  重启后台  ", height=42,
-                               callback=lambda: tk.action_restart())
-                dpg.add_spacer(width=8)
-                dpg.add_button(label="  存档修改器  ", height=42,
-                               callback=lambda: tk.open_save_editor())
-            dpg.add_spacer(height=8)
-            with dpg.group(horizontal=True):
-                dpg.add_spacer(width=22)
-                t = dpg.add_text("当前方案", color=T.C_TEXT_FAINT)
-                T.set_font(t, "tiny")
-                dpg.add_spacer(width=8)
-                v = dpg.add_text("默认方案", tag="home_profile",
-                                 color=T.C_GREEN)
-                T.set_font(v, "small")
-
-        dpg.add_spacer(height=12)
-
-        # ---- 卡 3：运行信息 ----
-        # 运行信息不值得占一整张卡：压成两行灰字贴在底部，
-        # 一屏能装下"状态 + 操作"才是首页该干的事。
-        dpg.add_spacer(height=8)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=24)
-            _mini("版本", "home_version")
-            dpg.add_spacer(width=26)
-            _mini("热键", "home_hotkey")
-            dpg.add_spacer(width=26)
-            _mini("技能来源", "home_source")
-            dpg.add_spacer(width=26)
-            _mini("游戏目录", "home_gamepath")
-        dpg.add_spacer(height=20)
+            with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchProp,
+                           width=-1, pad_outerX=True,
+                           borders_innerV=False, borders_innerH=False,
+                           borders_outerH=False, borders_outerV=False,
+                           scrollX=False, scrollY=False) as tb2:
+                dpg.bind_item_theme(tb2, _cell_theme(18))
+                for _ in range(4):
+                    dpg.add_table_column()
+                with dpg.table_row():
+                    for label, vtag in (("版本", "home_version"),
+                                        ("悬浮层热键", "home_hotkey"),
+                                        ("技能来源", "home_source"),
+                                        ("游戏目录", "home_gamepath")):
+                        with dpg.table_cell():
+                            t = dpg.add_text(label, color=T.C_TEXT_FAINT)
+                            T.set_font(t, "tiny")
+                            dpg.add_spacer(height=3)
+                            v = dpg.add_text("—", tag=vtag)
+                            T.set_font(v, "small")
+        dpg.add_spacer(height=18)
     return tag
 
 
@@ -324,13 +340,16 @@ def build_overlay(tk, parent):
     tag = "page_overlay"
     with dpg.child_window(tag=tag, parent=parent, border=False,
                           width=-1, show=False):
-        dpg.add_spacer(height=10)
+        dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
             pad()
             with dpg.group():
-                big_title("悬浮层", "屏幕上的收益徽标：显示 / 隐藏、字号、宽度、位置。")
-        dpg.add_spacer(height=16)
+                big_title("悬浮层", "")
+        dpg.add_spacer(height=8)
 
+        # 顶部只留「总开关 + 试一下 + 状态」三件。
+        # 以前三个显示开关也挤在这一行，窗口一窄最后一个"仅游戏在前台时显示"
+        # 直接被顶出右边界，只剩下半个"仅"字。它们现在归到右栏卡里。
         with dpg.group(horizontal=True):
             pad()
             dpg.add_checkbox(label="启用悬浮层", tag="ov_enabled",
@@ -340,17 +359,15 @@ def build_overlay(tk, parent):
             b = dpg.add_button(label="   立 即 显 示 / 隐 藏   ", height=34,
                                callback=cb_overlay_flash, user_data=tk)
             dpg.bind_item_theme(b, T.accent_button_theme())
-            dpg.add_spacer(width=12)
-            dpg.add_text("", tag="ov_visible_state", color=T.C_TEXT_DIM)
-            dpg.add_spacer(width=24)
-            dpg.add_checkbox(label="选卡时显示预设面板", tag="ov_panel",
-                             default_value=True,
-                             callback=cb_overlay_panel, user_data=tk)
             dpg.add_spacer(width=14)
-            dpg.add_checkbox(label="显示伤害统计框", tag="ov_dps",
+            dpg.add_text("", tag="ov_visible_state", color=T.C_TEXT_DIM)
+            dpg.add_spacer(width=26)
+            dpg.add_checkbox(label="启用热键", tag="ov_hotkey_on",
                              default_value=True,
-                             callback=cb_overlay_dps, user_data=tk)
-        dpg.add_spacer(height=14)
+                             callback=cb_hotkey_change, user_data=tk)
+            dpg.add_spacer(width=10)
+            dpg.add_text("", tag="ov_hotkey_msg", color=T.C_TEXT_FAINT)
+        dpg.add_spacer(height=10)
 
         # 左右分栏必须走表格。放在 group(horizontal=True) 里的话，
         # child_window(width=-1) 会按整个父宽算，右边那栏直接顶到窗口外。
@@ -370,86 +387,132 @@ def build_overlay(tk, parent):
     return tag
 
 
+def _ov_slider(item, tk):
+    """一格外观参数：小号灰标签在上，定宽滑杆在下。
+
+    滑杆宽度写死 120：用 -1 会按外层容器算宽，卡片里必然溢出。
+    """
+    label, tag, default, lo, hi, fmt = item
+    with dpg.group():
+        t = dpg.add_text(label, color=T.C_TEXT_DIM)
+        T.set_font(t, "tiny")
+        dpg.add_spacer(height=1)
+        if tag == "ov_width":
+            dpg.add_slider_int(tag=tag, width=120,
+                               default_value=int(default),
+                               min_value=lo, max_value=hi,
+                               format=fmt,
+                               callback=cb_overlay_live,
+                               user_data=tk)
+        else:
+            dpg.add_slider_float(tag=tag, width=120,
+                                 default_value=float(default),
+                                 min_value=lo, max_value=hi,
+                                 format=fmt,
+                                 callback=cb_overlay_live,
+                                 user_data=tk)
+        dpg.bind_item_theme(tag, T.slider_theme())
+
+
 def _overlay_left(tk):
-    """外观：四个滑杆 + 一行说明。"""
-    with dpg.child_window(width=-1, height=300, border=True,
-                          no_scrollbar=True):
-        dpg.add_spacer(height=14)
-        dpg.add_text("  外观（拖完立即生效）")
-        T.set_font(dpg.last_item(), "bold")
-        dpg.add_spacer(height=8)
+    """外观：四个滑杆 + 说明。卡高与右栏对齐。"""
+    with card(316):
+        # 标题行自带「恢复默认」：单独起一行放按钮的话，卡片底部会把它切掉。
+        dpg.add_spacer(height=9)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            _slabel("字号倍率")
-            dpg.add_slider_float(tag="ov_font", width=210,
-                                 default_value=1.0, min_value=0.7,
-                                 max_value=2.0, format="%.2f",
-                                 callback=cb_overlay_live, user_data=tk)
-            dpg.bind_item_theme("ov_font", T.slider_theme())
+            dpg.add_spacer(width=20)
+            t = dpg.add_text("外观")
+            T.set_font(t, "bold")
+            dpg.add_spacer(width=12)
+            h = dpg.add_text("拖完立即生效", color=T.C_TEXT_FAINT)
+            T.set_font(h, "tiny")
+            dpg.add_spacer(width=14)
+            rb = dpg.add_button(label=" 恢复默认 ", height=24,
+                                callback=cb_overlay_defaults, user_data=tk)
+            dpg.bind_item_theme(rb, T.ghost_button_theme())
+        dpg.add_spacer(height=7)
+        rule()
+        rows = (
+            ("字号倍率", "ov_font", 1.0, 0.7, 2.0, "%.2f"),
+            ("徽标宽度", "ov_width", 286, 240, 560, "%d"),
+            ("纵向位置", "ov_y", 0.222, 0.05, 0.85, "%.3f"),
+            ("卡牌间距", "ov_step", 0.1958, 0.12, 0.40, "%.4f"),
+        )
+        # 这里千万别用嵌套表格：卡片里的 table 设 width=-1 会按外层表格的
+        # 宽度算，直接溢出卡片左边被裁掉（标签只剩半个字）。而 DPG 自带的
+        # label 在 width=-1 时又会被画到卡片外。所以用 2×2 小格：
+        # 标签在上、定宽滑杆在下，宽度自己算得出来。
+        for pair in (rows[:2], rows[2:]):
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=18)
+                for item in pair:
+                    _ov_slider(item, tk)
+                    dpg.add_spacer(width=16)
+        dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            _slabel("徽标宽度")
-            dpg.add_slider_int(tag="ov_width", width=210,
-                               default_value=270, min_value=140,
-                               max_value=560,
-                               callback=cb_overlay_live, user_data=tk)
-            dpg.bind_item_theme("ov_width", T.slider_theme())
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            _slabel("纵向位置")
-            dpg.add_slider_float(tag="ov_y", width=210,
-                                 default_value=0.222, min_value=0.05,
-                                 max_value=0.85, format="%.3f",
-                                 callback=cb_overlay_live, user_data=tk)
-            dpg.bind_item_theme("ov_y", T.slider_theme())
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            _slabel("卡牌间距")
-            dpg.add_slider_float(tag="ov_step", width=210,
-                                 default_value=0.1958, min_value=0.10,
-                                 max_value=0.40, format="%.4f",
-                                 callback=cb_overlay_live, user_data=tk)
-            dpg.bind_item_theme("ov_step", T.slider_theme())
-        dpg.add_spacer(height=10)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            hint("纵向位置决定徽标在卡牌上方的落点；卡牌间距要和游戏分辨率匹配，"
-                 "错位时先把间距调回 0.1958 再微调。", wrap=330)
+            dpg.add_spacer(width=20)
+            hint("纵向位置决定徽标落在卡牌的哪一段；卡牌间距要和游戏分辨率匹配，"
+                 "错位时先点「恢复默认」再微调。", wrap=310)
 
 
 def _overlay_right(tk):
-    """游戏内热键：两个下拉 + 开关 + 说明。"""
-    with dpg.child_window(width=-1, height=300, border=True,
-                          no_scrollbar=True):
-        dpg.add_spacer(height=10)
-        dpg.add_text("  游戏内热键")
-        T.set_font(dpg.last_item(), "bold")
+    """右栏：显示内容 + 游戏内热键，一张卡里分两节。"""
+    with card(320):
+        card_head("显示设置", "改完立即生效")
+        rule()
+        # 三个开关排成 2+1：三个各占一行的话，卡片高度会顶到窗口外，
+        # 底下的「游戏内热键」整节直接看不见。
+        opts = (
+            ("选卡时显示预设面板", "ov_panel", cb_overlay_panel,
+             "触发选卡时，在游戏里侧显示这块流派面板。"),
+            ("显示伤害统计框", "ov_dps", cb_overlay_dps,
+             "游戏左侧那块每技能一行的伤害 / 占比统计。"),
+            ("仅游戏在前台时显示", "ov_onlyfg", cb_overlay_onlyfg,
+             "关掉后悬浮层会变成到处贴的贴图：游戏最小化、切到浏览器，"
+             "它仍然盖在最上面。"),
+        )
+        with dpg.table(header_row=False, policy=dpg.mvTable_SizingStretchSame,
+                       width=-1, pad_outerX=False,
+                       borders_innerV=False, borders_innerH=False,
+                       borders_outerH=False, borders_outerV=False,
+                       scrollX=False, scrollY=False) as tb:
+            dpg.bind_item_theme(tb, _cell_theme(8))
+            dpg.add_table_column()
+            dpg.add_table_column()
+            for i in range(0, 3, 2):
+                with dpg.table_row():
+                    for k in (i, i + 1):
+                        with dpg.table_cell():
+                            if k >= len(opts):
+                                continue
+                            label, tag, cb, tip = opts[k]
+                            c = dpg.add_checkbox(label=label, tag=tag,
+                                                 default_value=True,
+                                                 callback=cb, user_data=tk)
+                            with dpg.tooltip(c):
+                                dpg.add_text(tip, wrap=250,
+                                             color=T.C_TEXT_DIM)
         dpg.add_spacer(height=6)
+        rule()
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_combo(SUGGESTED_COMBOS, label="显示/隐藏悬浮层",
-                          tag="ov_hotkey", width=150,
-                          callback=cb_hotkey_change, user_data=tk)
+            dpg.add_spacer(width=20)
+            t = dpg.add_text("游戏内热键")
+            T.set_font(t, "small")
+            dpg.add_spacer(width=8)
+            hint("全屏也有效", wrap=120)
+        dpg.add_spacer(height=2)
+        # 两个下拉并排：竖着排第二个会被卡片下沿切掉。
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_combo(SUGGESTED_COMBOS, label="呼出工具箱",
-                          tag="ov_hotkey_panel", width=150,
-                          callback=cb_hotkey_change, user_data=tk)
-        dpg.add_spacer(height=6)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_checkbox(label="启用热键", tag="ov_hotkey_on",
-                             default_value=True,
-                             callback=cb_hotkey_change, user_data=tk)
-        dpg.add_spacer(height=8)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_text("", tag="ov_hotkey_msg", color=T.C_TEXT_FAINT,
-                         wrap=260)
-        dpg.add_spacer(height=8)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            hint("全屏也有效；「已被占用」说明键被占了。", wrap=260)
+            dpg.add_spacer(width=20)
+            for label, tag in (("显示 / 隐藏", "ov_hotkey"),
+                               ("呼出工具箱", "ov_hotkey_panel")):
+                with dpg.group():
+                    t = dpg.add_text(label, color=T.C_TEXT_DIM)
+                    T.set_font(t, "tiny")
+                    dpg.add_spacer(height=1)
+                    dpg.add_combo(SUGGESTED_COMBOS, tag=tag, width=130,
+                                  callback=cb_hotkey_change, user_data=tk)
+                dpg.add_spacer(width=16)
 
 
 # ===================================================================== 技能数值
@@ -462,7 +525,7 @@ def build_spells(tk, parent):
 
 # ===================================================================== 方案
 LEFT_W = 350
-PANEL_H = 424
+PANEL_H = 446
 
 
 def build_profile(tk, parent):
@@ -473,8 +536,7 @@ def build_profile(tk, parent):
         with dpg.group(horizontal=True):
             pad()
             with dpg.group():
-                big_title("方案与天赋",
-                          "插件读不到天赋树，在这里告诉它你点了什么。")
+                big_title("方案与天赋", "")
         dpg.add_spacer(height=6)
 
         # 两栏走表格，理由同悬浮层页：group(horizontal) 里的 width=-1
@@ -492,7 +554,6 @@ def build_profile(tk, parent):
                     _profile_left(tk)
                 with dpg.table_cell():
                     _profile_right(tk)
-        _profile_actions(tk)
     return tag
 
 
@@ -522,15 +583,21 @@ def _profile_left(tk):
         dpg.add_input_text(tag="pf_name", width=-1,
                            hint="在上面输入新名字，再点新建/改名")
         dpg.add_spacer(height=6)
-        dpg.add_text("", tag="pf_msg", color=T.C_TEXT_FAINT, wrap=-1)
-        dpg.add_spacer(height=12)
+        dpg.add_text("", tag="pf_msg", color=T.C_TEXT_FAINT, wrap=300)
+        dpg.add_spacer(height=8)
         rule()
-        hint("换职业就新建一个方案，别在同一个里来回改。", wrap=-1)
+        dpg.add_spacer(height=6)
+        # 保存按钮原来放在卡片外面，640 高的窗口里直接被切走，现在收进卡里。
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=20)
+            b = dpg.add_button(label="  保 存 并 应 用  ", height=32,
+                               callback=cb_profile_save, user_data=tk)
+            dpg.bind_item_theme(b, T.accent_button_theme())
 
 
 def _profile_right(tk):
     # ---------------- 右：方案内容 ----------------
-    with card(424):
+    with card(PANEL_H):
         card_head("方案内容", "改一项自动保存")
         dpg.add_spacer(height=2)
         rule()
@@ -541,7 +608,7 @@ def _profile_right(tk):
             dpg.add_combo([c[1] for c in C.CLASSES], tag="pf_class",
                           width=170, callback=cb_profile_field,
                           user_data=tk)
-        dpg.add_spacer(height=8)
+        dpg.add_spacer(height=4)
 
         lb2 = dpg.add_text("天赋开关", color=T.C_TEXT_DIM)
         T.set_font(lb2, "tiny")
@@ -570,18 +637,6 @@ def _profile_right(tk):
                                 format="%.1f", step=0,
                                 callback=cb_profile_field, user_data=tk)
 
-
-
-def _profile_actions(tk):
-        dpg.add_spacer(height=8)
-        with dpg.group(horizontal=True):
-            pad()
-            b = dpg.add_button(label="   保 存 并 应 用 到 后 台   ", height=36,
-                               callback=cb_profile_save, user_data=tk)
-            dpg.bind_item_theme(b, T.accent_button_theme())
-            dpg.add_spacer(width=12)
-            dpg.add_text("改任何一项都会自动保存；点这个按钮会顺带重启数据大脑。",
-                         color=T.C_TEXT_FAINT)
 
 
 # ===================================================================== 更新
@@ -623,68 +678,87 @@ def build_settings(tk, parent):
                 with dpg.table_cell():
                     _settings_update(tk)
 
-        dpg.add_spacer(height=12)
-        with dpg.group(horizontal=True):
-            pad()
-            b = dpg.add_button(label="   保 存 设 置   ", height=36,
-                               callback=cb_save_settings, user_data=tk)
-            dpg.bind_item_theme(b, T.accent_button_theme())
-            dpg.add_spacer(width=10)
-            dpg.add_button(label="   打开插件文件夹   ",
-                           callback=cb_open_folder, user_data=tk)
-            dpg.add_spacer(width=10)
-            dpg.add_button(label="   打开日志文件夹   ",
-                           callback=cb_open_logs, user_data=tk)
     return tag
 
 
 def _settings_game(tk):
-    with dpg.child_window(width=-1, height=226, border=True,
+    """左卡：游戏装在哪、要不要顺手拉起来。"""
+    with dpg.child_window(width=-1, height=408, border=True,
                           no_scrollbar=True):
-        dpg.add_spacer(height=12)
+        dpg.bind_item_theme(dpg.last_item(), T.card_theme())
+        card_head("游戏位置", "指到 AzerothSurvivors.exe 那一层")
+        dpg.add_spacer(height=2)
+        rule()
+        dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_text("游戏位置")
-            T.set_font(dpg.last_item(), "bold")
-        dpg.add_spacer(height=10)
+            dpg.add_spacer(width=18)
+            lb = dpg.add_text("游戏目录", color=T.C_TEXT_DIM)
+            T.set_font(lb, "small")
+        dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_input_text(tag="set_gamedir", width=250, readonly=True)
+            dpg.add_spacer(width=18)
+            dpg.add_input_text(tag="set_gamedir", width=196, readonly=True)
             dpg.add_spacer(width=8)
-            dpg.add_button(label="  选择…  ", height=30, callback=cb_pick_game,
+            dpg.add_button(label=" 选择… ", height=30, callback=cb_pick_game,
                            user_data=tk)
-            dpg.add_spacer(width=2)
+        dpg.add_spacer(height=4)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=18)
+            hint("换目录后要点一下保存，后台才会按新路径重启。", wrap=300)
         dpg.add_spacer(height=12)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
+            dpg.add_spacer(width=18)
             dpg.add_checkbox(label="点「开始」时顺带启动游戏",
                              tag="set_autolaunch", default_value=True,
                              callback=cb_setting_change, user_data=tk)
+        dpg.add_spacer(height=10)
+        rule()
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=18)
+            b = dpg.add_button(label="   保 存 设 置   ", height=34,
+                               callback=cb_save_settings, user_data=tk)
+            dpg.bind_item_theme(b, T.accent_button_theme())
 
 
 def _settings_update(tk):
-    with dpg.child_window(width=-1, height=226, border=True,
+    """右卡：自动检查要不要开、清单从哪拉。"""
+    with dpg.child_window(width=-1, height=408, border=True,
                           no_scrollbar=True):
-        dpg.add_spacer(height=12)
+        dpg.bind_item_theme(dpg.last_item(), T.card_theme())
+        card_head("更新", "默认走 ghproxy 镜像")
+        dpg.add_spacer(height=2)
+        rule()
+        dpg.add_spacer(height=6)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_text("更新")
-            T.set_font(dpg.last_item(), "bold")
-        dpg.add_spacer(height=10)
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
+            dpg.add_spacer(width=18)
             dpg.add_checkbox(label="启动时自动检查新版本",
                              tag="set_autoupdate", default_value=True,
                              callback=cb_setting_change, user_data=tk)
         dpg.add_spacer(height=10)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_text("更新地址", color=T.C_TEXT_DIM)
-            T.set_font(dpg.last_item(), "small")
+            dpg.add_spacer(width=18)
+            lb = dpg.add_text("更新地址", color=T.C_TEXT_DIM)
+            T.set_font(lb, "small")
         dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=16)
-            dpg.add_input_text(tag="set_manifest", width=250)
+            dpg.add_spacer(width=18)
+            dpg.add_input_text(tag="set_manifest", width=-1)
+        dpg.add_spacer(height=4)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=18)
+            hint("拉清单走的地址。能直连 GitHub 的话，换成原始 raw 链接会快很多。",
+                 wrap=300)
+        dpg.add_spacer(height=10)
+        rule()
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=18)
+            dpg.add_button(label="  打开插件文件夹  ", height=32,
+                           callback=cb_open_folder, user_data=tk)
+            dpg.add_spacer(width=8)
+            dpg.add_button(label="  打开日志文件夹  ", height=32,
+                           callback=cb_open_logs, user_data=tk)
 
 
 # --------------------------------------------------------------------- 回调
@@ -701,6 +775,17 @@ def cb_overlay_flash(sender, app_data, tk):
 def cb_overlay_dps(sender, app_data, tk):
     """游戏内左侧那块伤害统计（每个技能一行，伤害 + 占比）。"""
     tk.cfg.overlay["dps"] = bool(app_data)
+    tk.cfg.write_control()
+    tk.cfg.sync_settings()
+
+
+def cb_overlay_onlyfg(sender, app_data, tk):
+    """只在游戏位于前台时显示。
+
+    关掉它，悬浮层就会变成「永远置顶的贴图」—— 游戏最小化、切到浏览器
+    都还赖在屏幕上。默认开启。
+    """
+    tk.cfg.overlay["only_fg"] = bool(app_data)
     tk.cfg.write_control()
     tk.cfg.sync_settings()
 
@@ -724,6 +809,18 @@ def cb_overlay_live(sender, app_data, tk):
     ov["card_step"] = float(dpg.get_value("ov_step"))
     tk.cfg.write_control()
     tk.cfg.sync_settings()
+
+
+def cb_overlay_defaults(sender, app_data, tk):
+    """把四个外观参数拉回出厂值。
+
+    徽标错位最麻烦的是一次次试出来的怪值，留一个一键回到能用的起点。
+    """
+    for tag, val in (("ov_font", 1.0), ("ov_width", 286),
+                     ("ov_y", 0.222), ("ov_step", 0.1958)):
+        if dpg.does_item_exist(tag):
+            dpg.set_value(tag, val)
+    cb_overlay_live(sender, None, tk)
 
 
 def cb_hotkey_change(sender, app_data, tk):

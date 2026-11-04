@@ -40,7 +40,7 @@ class UpdatePage:
 
         with dpg.child_window(tag=tag, parent=parent, border=False,
                               width=-1, show=False):
-            dpg.add_spacer(height=10)
+            dpg.add_spacer(height=6)
             with dpg.group(horizontal=True):
                 dpg.add_spacer(width=24)
                 with dpg.group():
@@ -51,7 +51,7 @@ class UpdatePage:
                         "有新版本时一键升级；你的方案、技能备份、日志都不会动。",
                         color=T.C_TEXT_DIM, wrap=820)
                     T.set_font(s, "small")
-            dpg.add_spacer(height=14)
+            dpg.add_spacer(height=8)
 
             # 表格负责左右留白：group(horizontal) 里的 width=-1 会按整页宽算，
             # 卡片右边缘直接伸到窗口外面去。
@@ -60,13 +60,15 @@ class UpdatePage:
                            borders_innerV=False, borders_innerH=False,
                            borders_outerH=False, borders_outerV=False,
                            scrollX=False, scrollY=False) as _tb:
-                dpg.bind_item_theme(_tb, _cell_theme(24))
+                dpg.bind_item_theme(_tb, _cell_theme(20))
+                # 两张卡左右并排：上下叠着放，640 高的窗口里第二张永远只露半截。
+                dpg.add_table_column(init_width_or_weight=1.12)
                 dpg.add_table_column(init_width_or_weight=1.0)
                 with dpg.table_row():
                     with dpg.table_cell():
-                        with card(268):
-                            card_head("版本信息", "在线通道与手动更新包都能用")
-                            dpg.add_spacer(height=4)
+                        with card(340):
+                            card_head("版本信息", "在线 / 更新包都能用")
+                            dpg.add_spacer(height=2)
                             rule()
                             dpg.add_spacer(height=2)
                             _row_table([
@@ -74,36 +76,36 @@ class UpdatePage:
                                 ("最新版本", "up_latest", "检查后才知道"),
                                 ("更新通道", "up_channel", "清单地址的主机"),
                             ])
-                            dpg.add_spacer(height=2)
+                            dpg.add_spacer(height=6)
                             with dpg.group(horizontal=True):
                                 dpg.add_spacer(width=22)
                                 self.btn_main = dpg.add_button(
-                                    label="   检 查 更 新   ", height=36,
+                                    label="  检 查 更 新  ", height=32,
                                     callback=self.on_check)
                                 dpg.bind_item_theme(
                                     self.btn_main, T.accent_button_theme())
-                                dpg.add_spacer(width=10)
+                                dpg.add_spacer(width=8)
                                 dpg.add_button(
-                                    label="   从更新包导入…   ", height=36,
+                                    label="  从更新包导入…  ", height=32,
                                     callback=self.on_import)
-                                dpg.add_spacer(width=14)
-                                dpg.add_text("", tag="up_msg",
-                                             color=T.C_TEXT_DIM, wrap=420)
-
-                with dpg.table_row():
-                    with dpg.table_cell():
-                        with card(244):
-                            card_head("更新内容", "检查后这里会列出这次的改动")
                             dpg.add_spacer(height=6)
-                            rule()
                             with dpg.group(horizontal=True):
                                 dpg.add_spacer(width=22)
+                                dpg.add_text("", tag="up_msg",
+                                             color=T.C_TEXT_DIM, wrap=330)
+                    with dpg.table_cell():
+                        with card(340):
+                            card_head("更新内容", "检查后列出这次的改动")
+                            dpg.add_spacer(height=2)
+                            rule()
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=18)
                                 with dpg.child_window(width=-1, height=-1,
                                                       border=False):
                                     dpg.add_text("还没有检查过更新。",
                                                  tag="up_notes",
                                                  color=T.C_TEXT_FAINT,
-                                                 wrap=860)
+                                                 wrap=330)
             dpg.add_spacer(height=6)
         return tag
 

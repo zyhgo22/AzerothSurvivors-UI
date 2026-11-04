@@ -177,9 +177,10 @@ class Toolkit:
     def _build_nav(self):
         dpg.add_spacer(height=14)
         self.nav_items = {}
+        self.nav_label = {}
         for gi, (group, items) in enumerate(NAV_GROUPS):
             if gi:
-                dpg.add_spacer(height=10)
+                dpg.add_spacer(height=8)
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=24)
                     dpg.add_text(group, color=T.C_TEXT_FAINT)
@@ -188,25 +189,29 @@ class Toolkit:
             for key, label, icon in items:
                 # 不加 group、不给固定宽度：让 selectable 铺满整栏，
                 # 选中时那块绿底才有参考图那种"整行点亮"的感觉。
-                item = dpg.add_selectable(label="   %s    %s" % (icon, label),
+                base = "%s    %s" % (icon, label)
+                self.nav_label[key] = base
+                item = dpg.add_selectable(label="   " + base,
                                           tag="nav_" + key,
                                           callback=self._on_nav, user_data=key,
                                           height=36)
                 dpg.bind_item_theme(item, T.nav_theme(False))
                 self.nav_items[key] = item
-        dpg.add_spacer(height=16)
+        dpg.add_spacer(height=12)
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=22)
+            t = dpg.add_text("方案", color=T.C_TEXT_FAINT)
+            T.set_font(t, "tiny")
+            dpg.add_spacer(width=8)
             self.lbl_profile = dpg.add_text("", color=T.C_GREEN)
             T.set_font(self.lbl_profile, "small")
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=22)
-            hint = dpg.add_text("热键", color=T.C_TEXT_FAINT)
-            T.set_font(hint, "tiny")
-        with dpg.group(horizontal=True):
-            dpg.add_spacer(width=22)
+            t2 = dpg.add_text("热键", color=T.C_TEXT_FAINT)
+            T.set_font(t2, "tiny")
+            dpg.add_spacer(width=8)
             self.lbl_nav_hotkey = dpg.add_text("", color=T.C_TEXT_DIM)
-            T.set_font(self.lbl_nav_hotkey, "tiny")
+            T.set_font(self.lbl_nav_hotkey, "small")
 
     def _placeholder_footer(self):
         pass
@@ -225,11 +230,11 @@ class Toolkit:
                 pass
         try:
             dw = dpg.get_viewport_client_width()
-            nav_w = 172
+            nav_w = 184
             dpg.configure_item("nav", width=nav_w)
             dpg.configure_item("body", width=max(400, dw - nav_w))
             # 顶栏的弹簧：把状态芯片顶到右边。算不准也没关系，差几十像素不影响用。
-            dpg.configure_item("hdr_fill", width=max(30, dw - 520))
+            dpg.configure_item("hdr_fill", width=max(30, dw - 540))
         except Exception:
             pass
 
@@ -259,9 +264,11 @@ class Toolkit:
             dpg.configure_item(tag, show=(k == key))
             try:
                 dpg.set_value("nav_" + k, k == key)
-                # 选中的那项换成金色文字，未选中的压暗：靠颜色分辨"我在哪"，
-                # 而不是靠一块灰底——灰底和旁边一排按钮分不出来。
+                # 选中的那项：整行暗绿底 + 绿字 + 前面一个圆点
                 dpg.bind_item_theme("nav_" + k, T.nav_theme(k == key))
+                base = self.nav_label.get(k, "")
+                dpg.configure_item("nav_" + k,
+                                   label=(" ●  " + base) if k == key else ("    " + base))
             except Exception:
                 pass
         self._refresh_page(key)
@@ -428,16 +435,21 @@ class Toolkit:
             except Exception:
                 pass
         st = self._status
-        put("home_game", "运行中" if st["game"] else "未运行",
+
+        def dot(ok, on_text, off_text):
+            # 一个小圆点 + 状态词：扫一眼就知道哪一项没起来
+            return ("● " if ok else "○ ") + (on_text if ok else off_text)
+
+        put("home_game", dot(st["game"], "运行中", "未运行"),
             T.C_GREEN if st["game"] else T.C_TEXT_DIM)
-        put("home_brain", "运行中" if st["brain"] else "未运行",
+        put("home_brain", dot(st["brain"], "运行中", "未运行"),
             T.C_GREEN if st["brain"] else T.C_TEXT_DIM)
-        put("home_overlay", "显示中" if st["overlay"] else "未运行",
+        put("home_overlay", dot(st["overlay"], "显示中", "未运行"),
             T.C_GREEN if st["overlay"] else T.C_TEXT_DIM)
         put("home_profile", self.cfg.data["profile"]["active"], T.C_GOLD)
         try:
             dpg.set_value(self.lbl_profile,
-                          "方案：" + self.cfg.data["profile"]["active"])
+                          self.cfg.data["profile"]["active"])
         except Exception:
             pass
 
@@ -453,8 +465,9 @@ class Toolkit:
         dpg.set_value("ov_enabled", bool(ov.get("enabled", True)))
         dpg.set_value("ov_panel", bool(ov.get("panel", True)))
         dpg.set_value("ov_dps", bool(ov.get("dps", True)))
+        dpg.set_value("ov_onlyfg", bool(ov.get("only_fg", True)))
         dpg.set_value("ov_font", float(ov.get("font_scale", 1.0)))
-        dpg.set_value("ov_width", int(ov.get("badge_width", 270)))
+        dpg.set_value("ov_width", int(ov.get("badge_width", 286)))
         dpg.set_value("ov_y", float(ov.get("badge_y", 0.222)))
         dpg.set_value("ov_step", float(ov.get("card_step", 0.1958)))
         vis = self.cfg.overlay_visible()

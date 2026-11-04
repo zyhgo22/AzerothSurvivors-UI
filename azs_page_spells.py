@@ -30,7 +30,7 @@ FIELD_HINT = {
     "dur": "地面 / DoT 持续秒数；瞬发技为 0",
 }
 LIST_W = 320
-PANEL_H = 316
+PANEL_H = 300
 
 
 class SpellsPage:
@@ -54,7 +54,7 @@ class SpellsPage:
         self.page_tag = tag
         with dpg.child_window(tag=tag, parent=parent, border=False,
                               width=-1, show=False):
-            dpg.add_spacer(height=10)
+            dpg.add_spacer(height=6)
             with dpg.group(horizontal=True):
                 dpg.add_spacer(width=26)
                 with dpg.group():
@@ -65,7 +65,7 @@ class SpellsPage:
                         "改的是游戏本体的技能表，改完立刻生效（内存）或下次启动生效（文件）。",
                         color=T.C_TEXT_DIM, wrap=820)
                     T.set_font(s, "small")
-            dpg.add_spacer(height=10)
+            dpg.add_spacer(height=8)
 
             # ---- 工具栏 ----
             with dpg.group(horizontal=True):
@@ -142,9 +142,11 @@ class SpellsPage:
         return tag
 
     def _build_editor(self):
-        # 按钮放最上面：卡片高度受窗口约束，放底部会被裁掉看不见
+        # 按钮放最上面：卡片高度受窗口约束，放底部会被裁掉看不见。
+        # 左边留 14：卡片内容从边框内起算，不留白第一行会贴着边被切掉半个字。
         dpg.add_spacer(height=4)
         with dpg.group(horizontal=True):
+            dpg.add_spacer(width=14)
             n = dpg.add_text("未选中", tag="sp_name", color=T.C_GOLD)
             T.set_font(n, "bold")
             dpg.add_spacer(width=10)
@@ -155,6 +157,7 @@ class SpellsPage:
             dpg.add_button(label="  恢复  ", height=28,
                            callback=self.on_revert_one)
         with dpg.group(horizontal=True):
+            dpg.add_spacer(width=14)
             sub = dpg.add_text("", tag="sp_sub", color=T.C_TEXT_FAINT)
             T.set_font(sub, "small")
         dpg.add_spacer(height=6)

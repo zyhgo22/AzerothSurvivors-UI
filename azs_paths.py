@@ -18,7 +18,7 @@ import sys
 APP_NAME = "AZS 工具箱"
 APP_ID = "azs-toolkit"
 APP_TITLE_EN = "AZS Toolkit"      # viewport 标题只能用 ASCII，中文会让 DPG 2.3 崩溃
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 GAME_EXE_NAME = "AzerothSurvivors.exe"
 
